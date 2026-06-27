@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends.legacy:build"
+
+# =============================================================================
+# pytest
+# =============================================================================
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "--cov=sentinel",
+    "--cov-report=term-missing",
+    "--cov-report=xml:coverage.xml",
+    "--cov-fail-under=90",
+]
+markers = [
+    "unit: Unit tests (no database, no network)",
+    "integration: Integration tests (requires database)",
+    "slow: Tests that take more than 1 second",
+]
+
+# =============================================================================
+# mypy
+# =============================================================================
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_reexport = true
+disallow_any_generics = true
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+strict = false
+
+[[tool.mypy.overrides]]
+module = [
+    "factory.*",
+    "celery.*",
+    "decouple.*",
+    "drf_spectacular.*",
+]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+# =============================================================================
+# ruff
+# =============================================================================
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["sentinel", "config", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific rules
+    "S",    # flake8-bandit (security)
+    "N",    # pep8-naming
+    "DJ",   # flake8-django
+    "PT",   # flake8-pytest-style
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "ANN",  # flake8-annotations
+]
+ignore = [
+    "ANN101",  # Missing type annotation for `self`
+    "ANN102",  # Missing type annotation for `cls`
+    "S101",    # Use of assert (OK in tests)
+    "DJ001",   # Avoid using `null=True` on string-based fields (we have intentional nulls)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ANN", "S106"]
+"config/settings.py" = ["S105"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sentinel", "config"]
+known-third-party = ["django", "rest_framework", "celery"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# =============================================================================
+# coverage
+# =============================================================================
+[tool.coverage.run]
+source = ["sentinel"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/__init__.py",
+    "*/management/commands/*",
+    "config/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
+fail_under = 90

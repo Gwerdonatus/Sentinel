@@ -1,0 +1,23 @@
+---
+# Grafana datasource provisioning
+# Automatically configures Prometheus on first start
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+    editable: false
+
+  # Phase 2+: Jaeger for distributed traces
+  # - name: Jaeger
+  #   type: jaeger
+  #   access: proxy
+  #   url: http://jaeger:16686
+  #   editable: false

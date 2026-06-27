@@ -1,0 +1,114 @@
+# =============================================================================
+# Sentinel .gitignore
+# =============================================================================
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.*.local
+apps/backend/.env.local
+apps/frontend/.env.local
+
+# =============================================================================
+# Python / Django
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Linting
+.ruff_cache/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+apps/backend/staticfiles/
+apps/backend/media/
+
+# =============================================================================
+# Node.js / Next.js
+# =============================================================================
+node_modules/
+apps/frontend/.next/
+apps/frontend/out/
+apps/frontend/.turbo/
+
+# Build outputs
+apps/frontend/build/
+apps/frontend/dist/
+
+# Package manager
+yarn-error.log*
+.pnp
+.pnp.js
+
+# =============================================================================
+# Docker
+# =============================================================================
+.dockerignore
+
+# =============================================================================
+# IDE / Editor
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Security
+# =============================================================================
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+
+# =============================================================================
+# CI / Artifacts
+# =============================================================================
+pip-audit-results.json
