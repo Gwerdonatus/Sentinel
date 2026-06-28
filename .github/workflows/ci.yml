@@ -1,0 +1,362 @@
+---
+# =============================================================================
+# Sentinel — CI Pipeline
+#
+# Runs on every push to main/develop and every pull request.
+# Path-based filtering keeps CI fast in a monorepo:
+#   - Backend jobs only run when apps/backend/** changes
+#   - Frontend jobs only run when apps/frontend/** changes
+#   - Infrastructure jobs run when infra/** or docker-compose.yml changes
+#
+# All jobs must pass before a PR can merge to main.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  POSTGRES_VERSION: "16"
+
+jobs:
+
+  # ===========================================================================
+  # Change Detection — determines which jobs need to run
+  # ===========================================================================
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+              - 'infra/docker/Dockerfile.backend'
+            frontend:
+              - 'apps/frontend/**'
+              - 'infra/docker/Dockerfile.frontend'
+            infra:
+              - 'infra/**'
+              - 'docker-compose.yml'
+
+  # ===========================================================================
+  # Backend — Lint
+  # ===========================================================================
+  backend-lint:
+    name: Backend / Lint
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: apps/backend/requirements*.txt
+
+      - name: Install linting dependencies
+        run: pip install ruff mypy django-stubs djangorestframework-stubs types-redis
+
+      - name: Ruff — check linting
+        run: ruff check . --output-format=github
+
+      - name: Ruff — check formatting
+        run: ruff format . --check
+
+  # ===========================================================================
+  # Backend — Type Check
+  # ===========================================================================
+  backend-typecheck:
+    name: Backend / Type Check
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: apps/backend/requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: mypy — type check
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings
+          SECRET_KEY: ci-type-check-dummy-secret-key-minimum-fifty-characters
+          DATABASE_URL: postgres://x:x@localhost:5432/x
+          REDIS_URL: redis://localhost:6379/0
+        run: mypy sentinel/ config/ --ignore-missing-imports
+
+  # ===========================================================================
+  # Backend — Tests
+  # ===========================================================================
+  backend-test:
+    name: Backend / Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    services:
+      postgres:
+        image: postgres:${{ env.POSTGRES_VERSION }}-alpine
+        env:
+          POSTGRES_DB: sentinel_test
+          POSTGRES_USER: sentinel
+          POSTGRES_PASSWORD: sentinel_test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+        ports:
+          - 6379:6379
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings
+      ENVIRONMENT: test
+      DEBUG: "False"
+      SECRET_KEY: ci-test-secret-key-minimum-fifty-characters-long-string
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      DATABASE_URL: postgres://sentinel:sentinel_test_password@localhost:5432/sentinel_test
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CELERY_RESULT_BACKEND: redis://localhost:6379/2
+      OTEL_ENABLED: "False"
+      LOG_LEVEL: ERROR
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: apps/backend/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run tests with coverage
+        run: |
+          pytest \
+            --cov=sentinel \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=90 \
+            --tb=short \
+            -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: apps/backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+
+  # ===========================================================================
+  # Backend — Security Scan
+  # ===========================================================================
+  backend-security:
+    name: Backend / Security Scan
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Scan for known vulnerabilities
+        run: pip-audit -r requirements.txt --format=json --output=pip-audit-results.json || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pip-audit-results
+          path: apps/backend/pip-audit-results.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Frontend — Lint & Type Check
+  # ===========================================================================
+  frontend-lint:
+    name: Frontend / Lint & Type Check
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npm run type-check
+
+  # ===========================================================================
+  # Frontend — Build
+  # ===========================================================================
+  frontend-build:
+    name: Frontend / Build
+    needs: [changes, frontend-lint]
+    if: ${{ needs.changes.outputs.frontend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_APP_ENV: ci
+        run: npm run build
+
+  # ===========================================================================
+  # Docker Build Smoke Test
+  # ===========================================================================
+  docker-build:
+    name: Docker / Build Smoke Test
+    needs: changes
+    if: ${{ needs.changes.outputs.infra == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/backend
+          file: ./infra/docker/Dockerfile.backend
+          push: false
+          target: runtime
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: sentinel-backend:ci
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/frontend
+          file: ./infra/docker/Dockerfile.frontend
+          push: false
+          target: builder
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: sentinel-frontend:ci
+
+  # ===========================================================================
+  # Required Gates — all must pass for PR to merge
+  # ===========================================================================
+  ci-gate:
+    name: CI Gate
+    needs:
+      - backend-lint
+      - backend-typecheck
+      - backend-test
+      - backend-security
+      - frontend-lint
+      - frontend-build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all required jobs passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more CI jobs failed."
+            exit 1
+          fi
+          echo "All CI jobs passed."

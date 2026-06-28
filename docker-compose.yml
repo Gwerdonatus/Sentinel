@@ -1,0 +1,307 @@
+---
+# =============================================================================
+# Sentinel — Docker Compose
+# Full local development stack.
+#
+# Start everything: docker compose up
+# Start specific service: docker compose up backend postgres redis
+# Run migrations: docker compose exec backend python manage.py migrate
+# View logs: docker compose logs -f backend worker
+# =============================================================================
+
+x-backend-env: &backend-env
+  DJANGO_SETTINGS_MODULE: config.settings
+  ENVIRONMENT: development
+  DEBUG: "True"
+  SECRET_KEY: local-dev-secret-key-change-in-production-minimum-50-chars
+  ALLOWED_HOSTS: "localhost,127.0.0.1,backend,nginx"
+  DATABASE_URL: postgres://sentinel:sentinel_password@postgres:5432/sentinel_db
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  RATE_LIMIT_REDIS_URL: redis://redis:6379/3
+  CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+  OTEL_ENABLED: "True"
+  OTEL_SERVICE_NAME: sentinel-backend
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  LOG_LEVEL: DEBUG
+  JWT_SIGNING_KEY: local-dev-jwt-signing-key-change-in-production-minimum-50-chars
+  JWT_ACCESS_TOKEN_LIFETIME_MINUTES: "15"
+  JWT_REFRESH_TOKEN_LIFETIME_DAYS: "7"
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sentinel_db
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel_password
+      # Enable query stats for pg_stat_statements
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Backend (Django)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: ../../infra/docker/Dockerfile.backend
+      target: runtime
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+    volumes:
+      # Mount source code for hot reload in development
+      - ./apps/backend:/app
+      - /app/staticfiles  # Exclude staticfiles from bind mount
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "
+        python manage.py wait_for_db &&
+        python manage.py migrate --noinput &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./apps/backend
+      dockerfile: ../../infra/docker/Dockerfile.backend
+      target: runtime
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+    volumes:
+      - ./apps/backend:/app
+    command: >
+      celery -A config.celery worker
+      --loglevel=info
+      --concurrency=4
+      --queues=default,high_priority
+      --prefetch-multiplier=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat (Scheduler)
+  # ---------------------------------------------------------------------------
+  beat:
+    build:
+      context: ./apps/backend
+      dockerfile: ../../infra/docker/Dockerfile.backend
+      target: runtime
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+    volumes:
+      - ./apps/backend:/app
+    command: >
+      celery -A config.celery beat
+      --loglevel=info
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    depends_on:
+      - worker
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Flower (Celery Monitoring)
+  # ---------------------------------------------------------------------------
+  flower:
+    build:
+      context: ./apps/backend
+      dockerfile: ../../infra/docker/Dockerfile.backend
+      target: runtime
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      FLOWER_BASIC_AUTH: "sentinel:sentinel_flower_password"
+    command: >
+      celery -A config.celery flower
+      --port=5555
+      --basic_auth=sentinel:sentinel_flower_password
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Frontend (Next.js)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: ../../infra/docker/Dockerfile.frontend
+      target: builder  # Use builder stage in dev for hot reload
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_APP_ENV: development
+      NODE_ENV: development
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules  # Exclude node_modules from bind mount
+      - /app/.next          # Exclude build cache from bind mount
+    ports:
+      - "3000:3000"
+    command: npm run dev
+    depends_on:
+      - backend
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Nginx (Reverse Proxy)
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./infra/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # OpenTelemetry Collector
+  # ---------------------------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./infra/otel/otel-collector.yml:/etc/otel-collector-config.yml:ro
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+      - "8888:8888"  # Prometheus metrics (collector self-metrics)
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Prometheus
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - sentinel_net
+
+  # ---------------------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: sentinel
+      GF_SECURITY_ADMIN_PASSWORD: sentinel_grafana_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - sentinel_net
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  sentinel_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

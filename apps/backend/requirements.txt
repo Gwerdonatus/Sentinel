@@ -1,0 +1,57 @@
+# =============================================================================
+# Sentinel Backend — Python Dependencies
+# =============================================================================
+# Pin minor versions, not patch — allows security patches automatically.
+# Pin major versions to prevent breaking changes.
+# =============================================================================
+
+# --- Core Framework ---
+Django==5.1.*
+djangorestframework==3.15.*
+django-cors-headers==4.4.*
+
+# --- Configuration ---
+python-decouple==3.8
+
+# --- Database ---
+psycopg[binary]==3.2.*
+dj-database-url==2.2.*
+
+# --- Redis & Caching ---
+redis==5.1.*
+django-redis==5.4.*
+
+# --- Task Queue ---
+celery==5.4.*
+celery[redis]==5.4.*
+
+# --- Authentication (Phase 2) ---
+djangorestframework-simplejwt==5.3.*
+django-guardian==2.4.*
+
+# --- Security ---
+django-axes==7.0.*
+argon2-cffi==23.1.*
+
+# --- Observability ---
+opentelemetry-sdk==1.27.*
+opentelemetry-instrumentation-django==0.48.*
+opentelemetry-instrumentation-redis==0.48.*
+opentelemetry-instrumentation-psycopg==0.48.*
+opentelemetry-instrumentation-celery==0.48.*
+opentelemetry-exporter-otlp-proto-grpc==1.27.*
+django-prometheus==2.3.*
+structlog==24.4.*
+
+# --- API Utilities ---
+drf-spectacular==0.27.*
+
+# --- Kafka (Phase 2 — listed for dependency planning) ---
+# confluent-kafka==2.5.*
+
+# --- Development Utilities ---
+gunicorn==23.0.*
+
+# =============================================================================
+# Development-only dependencies (install with: pip install -r requirements-dev.txt)
+# =============================================================================

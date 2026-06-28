@@ -1,0 +1,70 @@
+# =============================================================================
+# Sentinel Backend — Dockerfile
+# Multi-stage build. Network-resilient: runtime stage copies libs from builder
+# instead of running apt-get again (avoids failures on restricted networks).
+# =============================================================================
+
+# ---- Stage 1: Builder -------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /build
+COPY requirements.txt ./
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ---- Stage 2: Runtime -------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+# Copy libpq from builder — no second apt-get needed
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libpq.so* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libssl.so* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libcrypto.so* /usr/lib/x86_64-linux-gnu/
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN groupadd --gid 1001 sentinel && \
+    useradd --uid 1001 --gid sentinel --no-create-home --shell /bin/false sentinel
+
+WORKDIR /app
+COPY --chown=sentinel:sentinel . /app/
+
+# collectstatic with DB_DEFAULT disabled — no DB connection at build time
+ENV DJANGO_SETTINGS_MODULE=config.settings
+ENV SECRET_KEY=build-time-dummy-key-not-used-at-runtime-sentinel-x
+ENV DATABASE_URL=postgres://x:x@localhost:5432/x
+ENV REDIS_URL=redis://localhost:6379/0
+ENV OTEL_ENABLED=False
+ENV CELERY_BROKER_URL=redis://localhost:6379/1
+ENV CELERY_RESULT_BACKEND=redis://localhost:6379/2
+
+RUN python manage.py collectstatic --noinput --verbosity 0
+
+USER sentinel
+
+# Health check via Python stdlib — no curl dependency
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live/')" || exit 1
+
+EXPOSE 8000
+
+CMD ["gunicorn", \
+     "config.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "4", \
+     "--worker-class", "sync", \
+     "--worker-connections", "1000", \
+     "--timeout", "60", \
+     "--keepalive", "5", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "warning"]
