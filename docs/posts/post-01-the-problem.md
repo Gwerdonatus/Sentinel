@@ -1,92 +1,105 @@
-# The Security Problem Every Fintech Ignores Until It's Too Late
+# The Missing Trust Layer in AI-Powered Financial Systems
 
-Most fintech companies are building fast. Features, onboarding, payments, growth. The infrastructure that *protects* those systems? That comes later — usually after an incident.
+Something changed in the last two years that most fintech security teams haven't fully reckoned with yet.
 
-I've seen it repeatedly working across financial technology products. A company processes millions of transactions. Something goes wrong. A disputed transfer. A compromised admin account. A regulator asking for evidence of what happened six months ago.
+Financial systems no longer have only human users.
 
-And then the hard question surfaces:
+They have humans, backend services, mobile clients, third-party APIs — and now **AI agents**. Support bots answering customer queries with access to account data. AI models reviewing transactions and flagging fraud. Code assistants that write and sometimes deploy code with access to production secrets. MCP servers connecting AI tools directly to internal APIs. Automated pipelines where AI makes decisions nobody manually approved.
 
-**Can you prove what happened?**
+All of these actors are interacting with the same infrastructure. All of them have access to sensitive data. And almost none of them are being audited with the same rigor we apply to human actions.
 
----
-
-## The Gap Nobody Talks About
-
-Modern fintech systems are good at processing money. They have robust payment flows, solid APIs, well-tested transaction logic.
-
-What they typically don't have is a coherent answer to the *investigative* questions:
-
-- Who performed this action, from which device, at what time?
-- Should this action have been trusted given the context?
-- Can we produce a tamper-proof record of this event for a regulator?
-- Can we detect if something suspicious is happening *right now*?
-- If an account was compromised, what is the full blast radius?
-
-These aren't edge cases. PCI-DSS requires them. SOC 2 requires them. Most African financial regulators are beginning to require them. And beyond compliance — your customers require them, even if they never articulate it that way.
-
-The gap isn't technical incompetence. It's sequencing. Companies build the product first and bolt on security audit infrastructure later. The problem is that "later" usually means after a painful incident, and retrofitting audit trails into a live financial system is expensive, risky, and incomplete.
+That is the security problem of the AI era. And it's sitting largely unaddressed inside most fintech companies right now.
 
 ---
 
-## What Actually Goes Wrong
+## What the Attack Surface Looks Like Today
 
-Here are the real failure modes I've seen or heard about across fintech teams:
+Consider what a mid-sized fintech company might have in production right now:
 
-**The missing trail.** An admin performs a bulk action — approves transfers, modifies limits, resets user accounts. There's no record of who did it or when. When something goes wrong downstream, the investigation starts from zero.
+- A customer support AI agent with read access to account data and transaction history
+- An AI fraud detection model that can flag, hold, or approve transactions
+- An AI-assisted code review tool with access to the codebase and sometimes secrets
+- MCP servers connecting internal APIs to AI tools used by engineers and ops teams
+- AI-generated summaries of customer complaints that include PII
+- Automated reconciliation pipelines where AI makes decisions on discrepancies
 
-**The untrusted event.** A login from Lagos, then a transaction from London three minutes later. The system processed both because each individual action looked valid. Nobody was scoring the sequence for risk. The fraud was found during the monthly reconciliation.
+Each of these represents a non-human actor with elevated access to sensitive systems.
 
-**The unverifiable record.** A disputed transaction audit log shows the transfer was approved. The customer insists it wasn't. The log could have been modified by a DB admin. There's no way to prove it hasn't been.
+Now ask the questions that matter:
 
-**The invisible blast radius.** A compromised API key was used for six days before detection. Nobody knows which resources it touched, what data it accessed, or what actions it performed — because nothing was systematically recorded.
+- If the support AI suddenly exports 50,000 customer records because of a badly crafted prompt, will you know before the export completes?
+- If the fraud AI starts approving anomalous transactions because its behavior drifted, how long before you catch it?
+- If an MCP server is compromised and begins making unauthorized API calls, can you reconstruct every action it took?
+- If a regulator asks you to prove what your AI systems did with customer data last quarter, do you have that record?
 
-**The slow investigation.** Something goes wrong. The engineering team spends three days parsing raw database logs across six services, correlating request IDs manually, trying to reconstruct what happened. A tool built for this would take minutes.
-
----
-
-## The Real Cost
-
-The cost isn't just reputational. It's direct:
-
-- Regulatory fines for inadequate audit trails
-- Engineering time lost to manual incident investigation
-- Customer churn from security incidents that were preventable
-- Legal exposure when you can't prove what your system did
-
-And there's a softer cost: the loss of institutional trust. When something goes wrong in a financial system and you can't explain it clearly and quickly, confidence collapses — with customers, with regulators, with investors.
+For most companies, the honest answer to all four is: **not confidently**.
 
 ---
 
-## What the Solution Actually Looks Like
+## The Original Problem Hasn't Gone Away Either
 
-The answer isn't more logging. Logs are unstructured, expensive to query at scale, and easy to tamper with.
+Before AI agents even entered the picture, financial systems had a foundational audit problem that most teams deferred until it was urgent.
 
-The answer is purpose-built security infrastructure that treats *every significant action* as a first-class event:
+The missing trail. An admin performs a bulk action — approves transfers, resets accounts, modifies limits. No record of who did it, from where, or when. An incident investigation starts from zero.
 
-**Immutability.** Every security-relevant event is written once and never modified. The record is cryptographically signed at creation. Tampering is detectable.
+The unverifiable record. A disputed transaction log shows it was approved. The customer insists it wasn't. The log could have been modified by a database admin. There's no cryptographic proof it hasn't been.
 
-**Real-time risk intelligence.** Every event is scored against behavioral baselines. Impossible travel, velocity spikes, new device + high-value action — these are signals, not noise. The system acts on them immediately.
+The invisible blast radius. A compromised credential was active for six days. Nobody knows which resources it touched because nothing was systematically recorded.
 
-**Complete observability.** Every request carries a trace ID from entry to exit, through every service, every database call, every async task. Investigation goes from days to minutes.
+The slow investigation. Something goes wrong. Engineering spends three days parsing raw database logs across six services, correlating request IDs manually. A purpose-built tool would take minutes.
 
-**Structured access control.** Not everyone should see everything. Auditors read. Analysts query. Admins manage. The system enforces these boundaries, and *crossing* them is itself auditable.
-
-**API-first architecture.** The audit layer isn't bolted onto one product. It's a platform that any service in your stack can write events to, query from, and integrate with.
+These problems existed before AI. AI makes them harder, faster-moving, and higher-stakes.
 
 ---
 
-## Why We're Building Sentinel
+## Why AI Makes the Audit Problem Worse
 
-Sentinel is an open-source event-driven security, audit, and risk intelligence platform for financial systems.
+Human behavior has patterns. An analyst who logs in at 9am from Lagos and accesses 200 customer records is unusual if they normally access 20. You can build a baseline. You can detect deviation.
 
-It doesn't process money. It protects systems that do.
+AI agents operate at a different scale and speed. An AI agent can make 10,000 API calls in the time it takes a human to review one. It can access data across the entire customer base in minutes. It doesn't follow business hours. It doesn't have a "normal" pattern the way a human does.
 
-The goal is to give every fintech team — from a two-person startup to a mature institution — access to the kind of security infrastructure that previously only existed inside companies like Stripe, Monzo, or Plaid, built at significant internal cost over years.
+This means:
 
-We're building it in public, phase by phase, with every architectural decision documented.
+**Volume thresholds matter more.** An AI agent accessing 50,000 records isn't inherently suspicious — it might be running a legitimate report. But it's also the signature of a data exfiltration. The difference is context, timing, and whether the access pattern matches what was authorized.
 
-The next post covers Phase 1 and Phase 2: what we built, why we made the decisions we did, and what the code actually looks like.
+**Attribution is harder.** When a human does something wrong, there's a name attached. When an AI agent does something wrong, who is responsible? The engineer who deployed it? The product manager who approved the feature? The model provider? Without clear actor identity on every AI action, accountability dissolves.
+
+**Incidents move faster.** A human attacker who gains access to a privileged account might spend days carefully exfiltrating data to avoid detection. An AI agent with a bad prompt or a compromised connection can cause damage in seconds. Detection and response need to be near-real-time.
+
+**The audit trail needs to know what kind of actor acted.** A compliance report that says "customer data was accessed" is incomplete if it doesn't distinguish between a human analyst, a backend service, and an AI agent. These are different risk profiles with different authorization models.
 
 ---
 
-*Sentinel is open source. Star the repo: [github.com/your-org/sentinel](https://github.com/your-org/sentinel)*
+## What Trust Actually Requires
+
+The question "can we trust what our AI systems are doing?" has a technical answer. Trust is not a feeling — it's a set of verifiable properties:
+
+**Attribution.** Every action — by every actor, human or AI — is recorded with identity. The record says who acted, what they acted on, when, from where, and in what context. AI agents have named identities, not anonymous service accounts.
+
+**Immutability.** The audit record cannot be modified after the fact. Not by a DBA. Not by an engineer with production access. The record is cryptographically signed at creation. Tampering is detectable.
+
+**Real-time visibility.** Anomalous behavior is detected as it happens, not during the monthly audit. An AI agent that starts behaving outside its normal pattern triggers an alert within seconds, not weeks.
+
+**Complete reconstructibility.** When something goes wrong, you can reconstruct every action an AI agent took — from first API call to last — with enough context to understand what happened and why.
+
+**Scope enforcement.** AI agents operate within defined permission scopes. Actions outside that scope are blocked or immediately flagged. The audit trail shows the boundary was enforced.
+
+These are engineering properties. They can be built. But they need to be built deliberately, before the incident — not retrofitted afterward.
+
+---
+
+## What We're Building
+
+Sentinel is an open-source security infrastructure platform designed for exactly this environment.
+
+It's not an AI product. It doesn't use AI to do security. It's infrastructure for companies that are *adopting* AI — the trust layer between AI agents, human users, and the financial systems they interact with.
+
+The core idea: treat every action by every actor — human or AI — as a first-class auditable event. Record it immutably. Score it for risk in real time. Alert when something anomalous happens. Make every incident reconstructible in minutes, not days.
+
+We're building it in public, phase by phase, with every architectural decision documented and the full codebase open source.
+
+The next post covers what we've built so far: the foundation and the audit ledger — and why every technical decision we made is designed to handle both human users and AI agents equally.
+
+---
+
+*Sentinel is open source. GitHub: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)*

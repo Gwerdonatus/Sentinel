@@ -1,19 +1,26 @@
-# Building Sentinel: Phase 1 Foundation + Phase 2 Identity & Audit Ledger
+# Building Sentinel: Foundation + Audit Ledger for the AI Era
 
-*This is the technical companion to [The Security Problem Every Fintech Ignores](#). If you haven't read that first, start there — it explains why Sentinel exists.*
+*This is the technical companion to [The Missing Trust Layer in AI-Powered Financial Systems](#). Read that first for the problem context.*
 
-We're building Sentinel in public. This post covers the first two phases: what we built, the decisions we made, and the reasoning behind each one. Everything is open source and the code is on GitHub.
+We're building Sentinel in public. This post covers Phases 1 and 2: what we built, the decisions behind it, and how every technical choice connects back to the core problem — building a trust layer for financial systems where both humans and AI agents are actors.
+
+The full code is on GitHub: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)
 
 ---
 
-## The Approach
+## The Design Constraint That Shaped Everything
 
-Before writing a single line of application code, we designed the system correctly. That means a production-grade monorepo structure, documented architectural decisions, and an observability stack wired in from day one — not retrofitted later.
+Before writing code, we established one non-negotiable constraint:
 
-Two rules guided every decision:
+**Every design decision must work for both human users and AI agents as first-class actors.**
 
-1. **No shortcuts that create structural debt.** If a better approach exists, use it and document why.
-2. **Future phases must not require structural refactoring.** The foundation has to support everything that comes after it.
+This sounds obvious. In practice it changes a lot.
+
+An audit system designed only for humans stores a `user_id`. An audit system designed for the AI era stores an `actor_id`, an `actor_type` (HUMAN, SERVICE, AI_AGENT), and enough context to reconstruct what kind of actor was responsible. The schema difference is small. The investigative capability difference is enormous.
+
+A risk engine designed only for humans detects impossible travel. A risk engine designed for AI agents detects data volume anomalies, out-of-scope resource access, and behavioral drift in automated systems. These are different signals requiring different baselines.
+
+We built Phase 1 and 2 as the foundation. Phase 3 adds the AI actor model on top of a system that was already designed to receive it.
 
 ---
 
@@ -21,92 +28,88 @@ Two rules guided every decision:
 
 ### Repository Structure
 
-Sentinel is a monorepo with three runtime components:
-
 ```
 sentinel/
 ├── apps/
 │   ├── backend/     # Django REST API
 │   ├── frontend/    # Next.js 15 dashboard
 │   └── worker/      # Celery task queue
-├── infra/           # Docker, Nginx, Prometheus, Grafana
-└── docs/            # Architecture, ADRs, roadmap
+├── infra/           # Docker, Nginx, Prometheus, Grafana, OTel
+└── docs/            # Architecture, ADRs, roadmap, posts
 ```
 
-A monorepo for this stage is the right call. The event schema, API contracts, and TypeScript types are shared between frontend and backend. Atomic commits across the stack are possible. One CI pipeline covers everything.
+Monorepo. The event schema, API contracts, and TypeScript response types are shared between frontend and backend. An atomic commit can change a Django serializer and the corresponding TypeScript type in the same PR, verified by a single CI run. Polyrepos introduce coordination overhead that is not worth it at this stage.
 
-### Technology Decisions
+### Why Django Over FastAPI
 
-**Django 5.x, not FastAPI.** Sentinel is a security platform, not a high-throughput API gateway. Django's default security posture — CSRF protection, XSS filtering, SQL injection prevention, secure password hashing, admin interface — is directly relevant. FastAPI is faster but ships with none of these defaults. We'd spend engineering time rebuilding what Django provides for free.
+Sentinel is a security platform. Django's default posture is security-first: CSRF protection, XSS filtering, SQL injection prevention, argon2 password hashing, and a mature admin interface — all on by default. FastAPI ships with none of these.
 
-**Celery + Redis for Phase 1, Kafka for Phase 2+.** Introducing Kafka before the event schema exists means either committing to a schema too early or designing a meaningless generic envelope. Both are worse than deferring. The task interface is abstracted so swapping the transport requires no business logic changes.
+We're not optimizing for maximum async throughput. We're optimizing for correctness, security defaults, and a rich ecosystem of security-relevant libraries. The throughput ceiling of synchronous Django is far above what Phase 1 needs, and when it matters, Celery workers and Kafka consumers absorb the load.
 
-**Cursor-based pagination from day one.** The audit log will have millions of rows. `OFFSET` pagination degrades as the table grows — `OFFSET 1000000` forces the database to scan and skip a million rows every time. Cursor pagination is constant-time regardless of dataset size.
+### Observability From Day One
 
-**UUID primary keys everywhere.** Sequential integer IDs expose record counts, enable enumeration attacks, and don't work across distributed systems. UUIDs are non-enumerable and can be generated without database coordination — critical for Kafka producers in Phase 2 that need to assign event IDs before insertion.
+The biggest infrastructure decision in Phase 1 was OpenTelemetry *before* any business logic exists. Every HTTP request gets a `trace_id` and `request_id` injected at middleware level, propagated through every log line, database query span, and Celery task.
 
-### Observability First
-
-The biggest infrastructure decision in Phase 1 was instrumenting OpenTelemetry *before* any business logic exists.
-
-Every HTTP request gets a `trace_id` and `request_id` injected at middleware level before reaching a view. These propagate through every log line, every database query span, every Celery task. When something goes wrong in production, the investigation starts with a `request_id` from the error response and ends with a complete picture of every operation that request touched.
-
-Three middleware layers handle this:
+Three middleware layers handle this in sequence:
 
 ```python
-# Request ID — UUID injected before anything else
 class RequestIDMiddleware:
+    """Injects UUID into every request. Returns it in X-Request-ID header."""
     def __call__(self, request):
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         request.request_id = request_id
         structlog.contextvars.bind_contextvars(request_id=request_id)
         response = self.get_response(request)
         response["X-Request-ID"] = request_id
+        structlog.contextvars.unbind_contextvars("request_id")
         return response
 
-# Trace context — W3C traceparent propagation
 class TraceContextMiddleware:
+    """Binds the OTel trace_id to structlog so every log includes it."""
     def __call__(self, request):
         span = trace.get_current_span()
         if span.get_span_context().is_valid:
             structlog.contextvars.bind_contextvars(
                 trace_id=format(span_context.trace_id, "032x"),
-                span_id=format(span_context.span_id, "016x"),
             )
         return self.get_response(request)
 ```
 
-All logs are structured JSON in production. Every log line includes `trace_id`, `span_id`, `request_id`, `user_id`, `method`, `path`. No unstructured strings that require regex parsing to query.
+Why this matters for AI systems: when an AI agent makes a bad API call, the investigation needs to trace that exact request through every service it touched. A `request_id` in the response header means the AI client can log which request triggered which behavior. A `trace_id` means engineers can pull the complete distributed trace — every database query, cache hit, and downstream call — for that exact request.
+
+All logs are structured JSON with consistent fields. No regex parsing to query logs.
 
 ### The Service/Repository Pattern
 
-Views in Sentinel are deliberately thin. No database queries. No business logic. They validate input, call a service, and return a response.
+Views are thin. No business logic. No database queries.
 
 ```
 HTTP Request → View (validate + call) → Service (logic) → Repository (DB) → PostgreSQL
 ```
 
-This matters because the same service function can be called from a view, a Celery task, a management command, or a test — without any HTTP dependency. When the risk engine in Phase 3 needs to compute a risk score, it calls `AuditEventService.list()` directly. If the logic lived in a view, that's impossible.
+This is the architecture that makes the risk engine possible in Phase 3. `AuditEventService.list()` is callable from a view, a Celery task, a management command, or the risk scoring engine — because it has no HTTP dependency. If the logic lived in views, none of those callers could reach it without an HTTP request.
 
 ### Health Endpoints
 
 Three endpoints, deliberately separated:
 
-- `GET /health/live/` — is this process running? Never checks dependencies. Used by Kubernetes liveness probes to decide whether to restart the pod.
-- `GET /health/ready/` — can this instance serve traffic? Checks PostgreSQL and Redis. Returns 503 if either is down. Used by load balancers to pull unhealthy instances from rotation.
-- `GET /health/` — full summary with latency per component. Used by Grafana and engineers during incidents.
+- `GET /health/live/` — is this process running? Never checks dependencies. Kubernetes restarts on failure.
+- `GET /health/ready/` — can this serve traffic? Checks PostgreSQL and Redis. Returns 503 if either is down.
+- `GET /health/` — full summary with latency per component. For Grafana and engineers.
 
-The separation matters. If Redis goes down, we want requests routed to healthy instances — not the pod restarted (which won't fix Redis). Liveness and readiness serve different purposes and must never be conflated.
+The separation matters operationally. If Redis goes down, we want requests routed to other instances — not pods restarted (which won't fix Redis). Conflating liveness and readiness is a common operational mistake.
 
 ---
 
 ## Phase 2: Identity & Audit Ledger
 
-Phase 2 is where Sentinel starts doing what it was built for.
-
 ### Custom User Model
 
-The first decision was `AbstractBaseUser` over `AbstractUser`. Django's `AbstractUser` ships with `username`, `first_name`, `last_name`, groups, and permission tables. None of these are relevant to Sentinel. We need `email` as the login identifier and `role` as a direct column — not Django's M2M group system.
+`AbstractBaseUser` over `AbstractUser`. Django's `AbstractUser` carries `username`, `first_name`, `last_name`, and a groups/permissions M2M setup we don't need. We want:
+
+- `email` as the login identifier
+- `role` as a direct DB column (not Django groups)
+- Security fields: `last_login_ip`, `failed_login_count`, `must_change_password`
 
 ```python
 class SentinelUser(AbstractBaseUser, PermissionsMixin):
@@ -121,17 +124,16 @@ class SentinelUser(AbstractBaseUser, PermissionsMixin):
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     failed_login_count = models.PositiveSmallIntegerField(default=0)
     must_change_password = models.BooleanField(default=False)
-
     USERNAME_FIELD = "email"
 ```
 
-This is set as `AUTH_USER_MODEL = "sentinel_auth.SentinelUser"` in settings before the first migration. Changing this after migrations exist is a painful multi-step migration. This is the correct permanent configuration.
+In Phase 3, AI agents get their own identity model — not shoehorned into `SentinelUser`. The user model is for humans. AI agents are identified by API keys with `agent_name` and `model_version` metadata. This distinction is intentional and important for attribution.
 
-### JWT Authentication with Redis Blacklisting
+### JWT with Redis Blacklisting
 
-`djangorestframework-simplejwt` handles token generation. The non-obvious decision is where to store the blacklist.
+`djangorestframework-simplejwt` handles token generation. The non-obvious decision is where to store blacklisted tokens.
 
-simplejwt ships with a database-backed blacklist. Every authenticated request checks two tables. That's a DB query on your hottest path — the authentication check — for every single API call.
+simplejwt ships with a database-backed blacklist. Every authenticated request would require a `SELECT` on the outstanding tokens table. That's a DB hit on your hottest path for every API call.
 
 We blacklist JTIs in Redis instead:
 
@@ -145,19 +147,19 @@ def _is_blacklisted(jti: str) -> bool:
     return cache.get(f"{_BLACKLIST_PREFIX}{jti}") is not None
 ```
 
-O(1) lookup. TTL set to match refresh token lifetime — keys auto-expire when the token would have expired anyway. No cleanup job. No DB hit on the auth path.
+O(1) lookup. TTL set to match refresh token lifetime — keys auto-expire. No cleanup job. No additional DB load.
 
-**Refresh token rotation** is implemented manually (not simplejwt's built-in rotation). Every refresh call:
+Refresh token rotation is implemented manually in `AuthService`. Every refresh:
 1. Validates the submitted token
-2. Checks it against the Redis blacklist
+2. Checks it against Redis blacklist
 3. If clean: blacklists the consumed JTI immediately
-4. Issues a fresh access + refresh pair
+4. Issues a fresh pair
 
-If a refresh token is stolen and used, the next legitimate refresh attempt will detect the reuse and force re-authentication. This is the standard rotation security model.
+Stolen refresh token reuse is detected on the next legitimate refresh attempt.
 
 ### RBAC Without Django Groups
 
-Four roles: `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER`. Role is stored as a `CharField` on the User model — not Django groups. DRF permission classes enforce it:
+Four roles on a `CharField`. Role embedded in JWT payload at issuance:
 
 ```python
 class IsAuditorOrAbove(BasePermission):
@@ -165,32 +167,32 @@ class IsAuditorOrAbove(BasePermission):
 
     def has_permission(self, request, view):
         return (
-            request.user
-            and request.user.is_authenticated
+            request.user.is_authenticated
             and request.user.role in self._allowed
         )
 ```
 
-The role is embedded in the JWT payload at token issuance. Authorization checks require zero database queries — the information is in the token.
+Role check = zero database queries. The information is in the token.
 
 ### The Immutable Audit Ledger
 
-The audit event model is the core of Sentinel. Every security-relevant action produces one. Once written, it must never change.
+The audit event model is the foundation of the entire platform. Every action — by every actor — produces one.
 
 ```python
 class AuditEvent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # WHO — denormalized snapshots, not foreign keys
+    # WHO acted — denormalized snapshots, not foreign keys
     actor_id = models.UUIDField(null=True, blank=True, db_index=True)
     actor_email = models.EmailField(blank=True, default="")
     actor_role = models.CharField(max_length=20, blank=True, default="")
     actor_ip = models.GenericIPAddressField(null=True, blank=True)
+    # Phase 3 adds: actor_type (HUMAN | SERVICE | AI_AGENT) and agent_name
 
-    # WHAT
-    event_type = models.CharField(max_length=64, choices=AuditEventType.choices, db_index=True)
+    # WHAT happened
+    event_type = models.CharField(max_length=64, choices=AuditEventType.choices)
 
-    # WHAT WAS AFFECTED
+    # WHAT was affected
     resource_type = models.CharField(max_length=64, blank=True, default="")
     resource_id = models.CharField(max_length=128, blank=True, default="")
 
@@ -201,36 +203,35 @@ class AuditEvent(models.Model):
     # TAMPER EVIDENCE
     signature = models.CharField(max_length=64, blank=True, default="")
 
-    # WHEN — future partition key
+    # WHEN — future partition key (range by month)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    # No updated_at — this table is append-only by design
+    # No updated_at — append-only by design
 ```
 
-Note the denormalized actor fields. We store the email and role *at the time of the event* — not a foreign key to the user. User records change. Audit records must not. If a user's email changes after an event, the audit record still accurately reflects who performed the action at the time.
+Note the denormalized actor fields. We store email and role *at the time of the event* — not a foreign key. User records change. Audit records must accurately reflect the state *when the action occurred*. If an AI agent's configuration changes after an event, the audit record still shows what it was.
 
-**Immutability is enforced at three layers:**
+Phase 3 extends this with `actor_type` and AI-agent-specific fields. The schema is designed to receive them without migration pain.
 
-1. **Repository layer** — `update()` and `delete()` raise `NotImplementedError` unconditionally.
-2. **Django admin** — `has_change_permission` and `has_delete_permission` return `False`.
-3. **HMAC-SHA256 signatures** — detects tampering even at the database level.
+### Three-Layer Immutability
 
-### HMAC Signature Scheme
+**Layer 1: Repository.** `AuditEventRepository.update()` and `.delete()` raise `NotImplementedError` unconditionally. Application code physically cannot call them.
 
-Every event is signed at creation:
+**Layer 2: Django admin.** `has_change_permission` and `has_delete_permission` return `False`. The admin interface shows records but cannot modify them.
+
+**Layer 3: HMAC-SHA256 signatures.** Even if someone modifies the record directly at the database level (bypassing both the application and admin), the signature will not match on verification.
 
 ```python
 def compute_event_signature(event_id, event_type, actor_id, actor_email,
                              created_at, metadata, secret_key):
-    payload_json = json.dumps(metadata, sort_keys=True, default=str)
-    payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+    # Hash metadata for efficient signing of large payloads
+    payload_hash = hashlib.sha256(
+        json.dumps(metadata, sort_keys=True, default=str).encode()
+    ).hexdigest()
 
     message = "|".join([
-        str(event_id),
-        event_type,
+        str(event_id), event_type,
         str(actor_id) if actor_id else "",
-        actor_email,
-        created_at.isoformat(),
-        payload_hash,
+        actor_email, created_at.isoformat(), payload_hash,
     ])
 
     return hmac.new(
@@ -240,51 +241,64 @@ def compute_event_signature(event_id, event_type, actor_id, actor_email,
     ).hexdigest()
 ```
 
-The metadata is hashed before inclusion — this handles large payloads efficiently while still covering them in the signature. JSON is sorted by key before hashing so key insertion order doesn't affect the signature.
+JSON sorted before hashing — key insertion order doesn't affect the signature. `hmac.compare_digest` for constant-time comparison — no timing attacks.
 
-Verification uses `hmac.compare_digest` — constant-time comparison that prevents timing attacks.
-
-Any modification to any signed field — event type, actor, metadata, or timestamp — will produce a signature mismatch detectable via `GET /api/v1/events/{id}/verify/`.
+`GET /api/v1/events/{id}/verify/` recomputes and compares. A tampered record fails instantly.
 
 ### The @audit_action Decorator
 
-The practical problem with audit logging is that engineers forget to do it. The `@audit_action` decorator makes forgetting impossible by wrapping the view method:
+The practical problem with audit logging: engineers forget. The `@audit_action` decorator makes forgetting structurally impossible:
 
 ```python
-class UserCreateView(APIView):
+class RegisterView(APIView):
     @audit_action(
         event_type="USER_CREATED",
         resource_type="user",
         get_resource_id=lambda req, resp: resp.data.get("id"),
     )
     def post(self, request):
-        # Create the user...
+        # Register the user...
         return Response(user_data, status=201)
 ```
 
-The decorator fires after a successful response (2xx). It records who made the request, what was affected, and the full context — without the view knowing anything about audit recording. Async by default via Celery; synchronous mode available where hard audit requirements demand it.
+Fires after a successful 2xx response. Dispatches a Celery task with `acks_late=True` — no audit record lost on worker crash. Three retries with five-second backoff. Synchronous mode available where regulations demand immediate write.
 
 ---
 
-## What's Next
+## Current API Surface
 
-**Phase 3: Risk Intelligence & Alerting**
-- Behavioral baseline per actor
-- Real-time risk scoring on every event (impossible travel, velocity spikes, new device)
-- Alert rule engine with a condition DSL
-- API key management with HMAC-SHA256 hashed storage
-- Webhook processing and notification delivery
+```
+POST   /api/v1/auth/register/         Create account
+POST   /api/v1/auth/login/            Obtain JWT pair
+POST   /api/v1/auth/refresh/          Rotate refresh token
+POST   /api/v1/auth/logout/           Blacklist refresh token
+GET    /api/v1/auth/me/               Current user profile
+POST   /api/v1/auth/me/password/      Change password
 
-The audit ledger built in Phase 2 is the input to the risk engine. Every event we now record cleanly becomes a signal the risk engine can act on.
+POST   /api/v1/events/ingest/         Record an audit event
+GET    /api/v1/events/                List events (cursor-paginated, filtered)
+GET    /api/v1/events/{id}/           Retrieve single event
+GET    /api/v1/events/{id}/verify/    Verify HMAC signature integrity
+
+GET    /health/live/                  Liveness probe
+GET    /health/ready/                 Readiness probe
+GET    /health/                       Full health summary
+```
 
 ---
 
-## The Code
+## What Phase 3 Adds
 
-Everything is on GitHub: [github.com/your-org/sentinel](https://github.com/your-org/sentinel)
+Phase 3 introduces the risk intelligence engine and the AI actor model.
 
-Current state: `v0.2.0` — Phase 1 + Phase 2 complete.
+Every audit event gets a risk score. AI agents get dedicated identities — named, versioned, scoped. The risk engine builds behavioral baselines per actor type. An AI agent that suddenly accesses 10× its normal data volume triggers an alert within seconds.
 
-The repo includes 11 ADRs documenting every major architectural decision, 11 test files targeting 90%+ coverage, and a Docker Compose stack that brings up the complete environment in one command.
+The audit ledger we built in Phase 2 is the input. Every event we now record cleanly becomes a signal the risk engine scores in real time.
 
-*Next post: Phase 3 — Risk Intelligence. We'll build the engine that scores every event in real time and fires alerts when the score crosses a threshold.*
+Next post: **"How Do You Audit What an AI Agent Does?"** — the problem Phase 3 solves.
+
+---
+
+*Star the repo: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)*
+
+*v0.2.0 tagged. Phase 3 in progress.*

@@ -1,9 +1,9 @@
 # Sentinel
 
-> **Event-Driven Security, Audit & Risk Intelligence Platform for Financial Systems**
+> **The Trust Layer for AI-Powered Financial Systems**
 
-[![CI](https://github.com/your-org/sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/sentinel/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://github.com/your-org/sentinel)
+[![CI](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://github.com/Gwerdonatus/Sentinel)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](https://python.org)
 [![Django 5.x](https://img.shields.io/badge/django-5.x-green)](https://djangoproject.com)
@@ -12,66 +12,73 @@
 
 ## What Is Sentinel?
 
-Sentinel is the infrastructure layer that protects modern financial systems.
+Modern financial systems no longer have only human users. They have humans, backend services, mobile apps, third-party APIs, and increasingly — **AI agents** — all interacting with the same infrastructure.
 
-Modern fintech companies receive millions of events every day — logins, transfers, admin approvals, API calls, device registrations. Most systems simply execute these actions.
+An AI support agent that exports 50,000 customer records because of a bad prompt. An AI model reviewing transactions that starts approving anomalous ones. An MCP server with production access that performs actions nobody authorized. Code written by an AI assistant that accidentally exposes secrets.
+
+The question is no longer *"Can AI help us?"*
+
+It's **"How do we trust what AI and automated systems are doing?"**
+
+Sentinel is the answer. An open-source, event-driven security, audit, and risk intelligence platform that gives financial systems the visibility, auditability, and real-time intelligence needed to operate safely — whether the actor is a human, a service, or an AI agent.
 
 **Sentinel exists to answer:**
 
-- Who performed this action?
-- Should this action be trusted?
-- Can we prove what happened six months later?
-- Can suspicious activity be detected immediately?
-- Can we investigate incidents in minutes, not days?
+- Who or what performed this action — human, service, or AI agent?
+- Should this action be trusted given the actor's history and context?
+- Can we prove what happened six months later with a tamper-proof record?
+- Can we detect an AI agent behaving anomalously in real time?
+- Can we reconstruct every action an AI took during an incident?
 
-Sentinel does **not** process money. It protects systems that do.
+Sentinel does **not** process money. It is the trust layer between actors — human and AI — and the systems that do.
 
 ---
 
 ## Core Capabilities
 
-| Capability | Status |
-|---|---|
-| Immutable Audit Ledger | 🔜 Phase 2 |
-| Event Streaming (Kafka) | 🔜 Phase 2 |
-| Risk Intelligence Engine | 🔜 Phase 3 |
-| API Key Management | 🔜 Phase 3 |
-| JWT Authentication + RBAC | 🔜 Phase 2 |
-| Security Alerts | 🔜 Phase 3 |
-| Dashboard | 🔜 Phase 4 |
-| Prometheus Metrics | ✅ Phase 1 |
-| Distributed Tracing (OTEL) | ✅ Phase 1 |
-| Health Endpoints | ✅ Phase 1 |
-| Webhook Processing | 🔜 Phase 3 |
-| Compliance Reports | 🔜 Phase 4 |
+| Capability | Description | Status |
+|---|---|---|
+| Immutable Audit Ledger | Tamper-evident, HMAC-signed record of every action by every actor | ✅ Phase 2 |
+| JWT Auth + RBAC | Email-first auth, role-based access, Redis token blacklist | ✅ Phase 2 |
+| Health + Observability | OpenTelemetry traces, Prometheus metrics, structured logging | ✅ Phase 1 |
+| Event Streaming (Kafka) | Ordered, durable, replayable event pipeline at scale | 🔜 Phase 3 |
+| Risk Intelligence Engine | Real-time behavioral scoring — humans and AI agents alike | 🔜 Phase 3 |
+| AI Actor Tracking | Identify, attribute, and audit AI agent actions separately from humans | 🔜 Phase 3 |
+| Alert Rule Engine | Condition-based alerts when risk score or behavior crosses threshold | 🔜 Phase 3 |
+| API Key Management | Scoped keys with rotation, usage tracking, and per-key audit trail | 🔜 Phase 3 |
+| Dashboard | Investigation UI, actor timelines, compliance reports | 🔜 Phase 4 |
+| Compliance Reports | PCI-DSS, SOC 2 evidence export with AI action attribution | 🔜 Phase 4 |
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Sentinel Platform                        │
-│                                                                  │
-│  ┌──────────────────┐    ┌──────────────────────────────────┐   │
-│  │   Next.js        │    │         Django REST API           │   │
-│  │   Dashboard      │◄──►│  api/v1/ (versioned endpoints)   │   │
-│  │   (App Router)   │    │                                  │   │
-│  └──────────────────┘    └──────────────┬───────────────────┘   │
-│                                         │                        │
-│              ┌──────────────────────────┼───────────────────┐   │
-│              │                          │                    │   │
-│   ┌──────────▼──────────┐   ┌──────────▼──────┐   ┌───────▼─┐  │
-│   │   Celery Workers     │   │   PostgreSQL     │   │  Redis  │  │
-│   │   (Task Queue)       │   │   (Primary DB)   │   │(Cache/  │  │
-│   │                     │   │                  │   │ Queue)  │  │
-│   └─────────────────────┘   └──────────────────┘   └─────────┘  │
-│                                                                  │
-│   ┌──────────────────────────────────────────────────────────┐  │
-│   │  Observability Stack                                      │  │
-│   │  OpenTelemetry → Prometheus → Grafana                     │  │
-│   └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Sentinel Trust Layer                          │
+│                                                                       │
+│   Actors:  👤 Humans    🤖 AI Agents    ⚙️ Services    📱 Mobile     │
+│                │               │              │             │         │
+│                └───────────────┴──────────────┴─────────────┘         │
+│                                      │                                │
+│                           ┌──────────▼──────────┐                    │
+│                           │   Django REST API    │                    │
+│                           │   JWT Auth + RBAC    │                    │
+│                           │   api/v1/ versioned  │                    │
+│                           └──────────┬──────────┘                    │
+│                                      │                                │
+│        ┌─────────────────────────────┼──────────────────┐            │
+│        │                             │                  │            │
+│  ┌─────▼──────┐   ┌──────────────────▼────┐   ┌────────▼───────┐    │
+│  │  Audit     │   │   Risk Intelligence    │   │  PostgreSQL    │    │
+│  │  Ledger    │   │   Engine (Phase 3)     │   │  Redis         │    │
+│  │  (HMAC)    │   │   Scores every actor   │   │  Celery        │    │
+│  └────────────┘   └───────────────────────┘   └────────────────┘    │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  Observability: OpenTelemetry → Prometheus → Grafana           │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---

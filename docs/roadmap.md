@@ -1,109 +1,105 @@
 # Sentinel Roadmap
 
-## Phase 1 — Foundation (Current)
+## Positioning
+
+Sentinel is security infrastructure for the AI era of financial systems.
+
+Modern financial systems have multiple actor types interacting with the same infrastructure: human users, backend services, mobile clients, third-party APIs, and increasingly AI agents — support bots, transaction reviewers, code assistants with production access, MCP servers.
+
+Every phase of Sentinel is built with this reality in mind. The audit ledger records *who* acted — human or AI. The risk engine scores *what* changed — whether the actor is a person or an automated system. The dashboard shows timelines across all actor types so investigators can reconstruct exactly what happened.
+
+---
+
+## Phase 1 — Foundation ✅ Complete
 
 **Goal:** Production-grade infrastructure that every subsequent phase builds on without structural refactoring.
 
-**Deliverables:**
-- [x] Monorepo structure
-- [x] Docker + Docker Compose (full local stack)
-- [x] GitHub Actions CI (lint, type check, test, coverage)
-- [x] Base Django project with production settings pattern
-- [x] Base Next.js project (App Router)
-- [x] OpenTelemetry instrumentation (traces from day one)
-- [x] Prometheus metrics endpoint
-- [x] Structured JSON logging
-- [x] Request ID middleware
-- [x] Health check endpoints (liveness + readiness)
-- [x] Nginx reverse proxy
-- [x] Architecture documentation
-- [x] ADRs (001–008)
-- [x] Coding standards
-- [x] Security policy
-- [x] Contributing guide
-- [x] Environment configuration pattern
+- Monorepo structure (apps/backend, apps/frontend, infra/, docs/)
+- Django 5.x + DRF + Celery + Redis + PostgreSQL
+- Next.js 15 App Router frontend
+- OpenTelemetry instrumentation from day one
+- Request ID + W3C trace context middleware
+- Structured JSON logging (structlog)
+- Cursor-based pagination
+- Health endpoints (liveness, readiness, summary)
+- Docker Compose full stack
+- GitHub Actions CI
+- 8 Architecture Decision Records
 
 ---
 
-## Phase 2 — Identity & Audit Ledger
+## Phase 2 — Identity & Audit Ledger ✅ Complete
 
-**Goal:** The core security primitive — prove what happened and by whom.
+**Goal:** Prove what happened, by whom — human or AI.
 
-**Deliverables:**
-- [ ] JWT authentication (`djangorestframework-simplejwt`)
-  - Access token (15 minutes)
-  - Refresh token (7 days, rotated on use)
-  - Token blacklist on logout
-- [ ] RBAC with roles: `ADMIN`, `AUDITOR`, `ANALYST`, `VIEWER`
-- [ ] Immutable audit event model
-  - Append-only at application layer
-  - Signed event envelope (HMAC)
-  - Event schema v1 definition
-- [ ] Kafka integration
-  - Producer: Django → Kafka on event
-  - Consumer: Celery worker → PostgreSQL
-  - Schema registry (Confluent / Redpanda)
-- [ ] Audit event API
-  - `POST /api/v1/events/` — ingest event
-  - `GET /api/v1/events/` — list with filters
-  - `GET /api/v1/events/{id}/` — event detail
-- [ ] Event search with filters: actor, type, resource, time range
-- [ ] User management API
-- [ ] Password reset flow
-- [ ] Device registration tracking
+- Custom SentinelUser model (email-first, RBAC roles)
+- JWT authentication with Redis blacklist (O(1), TTL-based)
+- Refresh token rotation — stolen token reuse detection
+- RBAC: ADMIN / AUDITOR / ANALYST / VIEWER
+- Immutable AuditEvent model — append-only, no UPDATE/DELETE
+- HMAC-SHA256 event signatures — tamper detection at DB level
+- Three-layer immutability enforcement
+- `@audit_action` decorator — automatic audit recording on views
+- Async event recording via Celery (acks_late=True, 3 retries)
+- Signature verification endpoint
+- ADRs 009-011
 
 ---
 
-## Phase 3 — Risk Intelligence & Alerting
+## Phase 3 — Risk Intelligence & AI Actor Tracking
 
-**Goal:** Real-time detection of suspicious activity.
+**Goal:** Know when something is wrong before it becomes an incident. Know when AI is behaving anomalously.
 
-**Deliverables:**
-- [ ] Risk scoring engine
-  - Baseline behavioral profile per actor
-  - Anomaly detection signals: impossible travel, unusual hours, new device, velocity spike
-  - Composite risk score (0–100)
-  - Risk score stored with every event
-- [ ] Alert rule engine
-  - Rule DSL: `IF risk_score > 80 AND event_type IN ['TRANSFER', 'WITHDRAWAL'] THEN alert`
-  - Rule evaluation on every event (Celery task)
-  - Alert state machine: `OPEN → ACKNOWLEDGED → RESOLVED`
-- [ ] API Key management
-  - Key creation with permission scopes
-  - HMAC-SHA256 hashed storage
-  - Key rotation with grace period
-  - Usage tracking per key
-- [ ] Webhook processing
-  - Incoming webhook ingestion
-  - Delivery tracking with retry
-  - HMAC signature verification for sources
-- [ ] Notification engine
-  - Email (SMTP/SendGrid)
-  - Slack
-  - PagerDuty
-  - Webhook delivery
+**Actor identity model:**
+- Extend audit events to carry `actor_type`: `HUMAN | SERVICE | AI_AGENT`
+- AI agents identified by dedicated API keys with `agent_name` and `model_version` fields
+- Per-actor behavioral profiles — humans and AI agents tracked separately
+- Every AI action attributed to a named agent, not just an anonymous service account
+
+**Risk scoring engine:**
+- Composite risk score (0–100) on every audit event
+- Signals for human actors: impossible travel, unusual hours, new device, velocity spike
+- Signals for AI actors: anomalous data volume, out-of-scope resource access, prompt injection indicators, rate spikes
+- Baseline behavioral profile per actor, updated on rolling 30-day window
+- Risk score stored on the audit event — queryable historically
+
+**Alert rule engine:**
+- Rule DSL: `IF risk_score > 80 AND actor_type = AI_AGENT THEN alert`
+- Evaluation on every ingested event (Celery task)
+- Alert state machine: OPEN → ACKNOWLEDGED → RESOLVED
+- Built-in rules: impossible travel, AI data exfiltration pattern, admin action outside business hours
+
+**API Key management:**
+- Keys for human API access and AI agent identity
+- HMAC-SHA256 hashed storage — plain text never stored
+- Per-key scope definitions (read-only, write, admin)
+- Rotation with grace period — old key valid for N hours after rotation
+- Usage tracking per key — feeds into risk scoring
+
+**Notification engine:**
+- Email (SMTP/SendGrid)
+- Slack webhook
+- PagerDuty
+- Outbound webhook delivery with HMAC signature
 
 ---
 
 ## Phase 4 — Dashboard & Compliance
 
-**Goal:** The operational surface for security teams.
+**Goal:** The operational surface for security teams and compliance officers.
 
-**Deliverables:**
-- [ ] Next.js dashboard
-  - Audit log viewer (infinite scroll, real-time updates)
-  - Risk score timeline per actor
-  - Alert management inbox
-  - API key management UI
-  - User and role management
-- [ ] Compliance reports
-  - PCI-DSS event export
+- Next.js dashboard (React Server Components for large audit tables)
+- Actor timeline view — reconstruct any human or AI session end-to-end
+- Risk score timeline per actor
+- Alert management inbox
+- AI agent activity summary — what did each AI agent do today/this week?
+- Compliance reports:
+  - PCI-DSS event export with AI action attribution
   - SOC 2 evidence package
-  - Custom date range export (CSV, JSON)
-- [ ] Investigation tools
-  - Actor timeline view
-  - Event correlation (same session, same device)
-  - Export case to PDF
+  - Custom date range export (CSV, JSON, PDF)
+- Investigation tools:
+  - Cross-event correlation by session, device, IP, or AI agent
+  - Export investigation case
 
 ---
 
@@ -111,13 +107,24 @@
 
 **Goal:** Deploy Sentinel as a shared platform across multiple organizations.
 
-**Deliverables:**
-- [ ] Tenant isolation
-  - Row-level security in PostgreSQL
-  - Per-tenant Kafka topics
-  - Per-tenant rate limits
-- [ ] Kubernetes deployment manifests
-- [ ] Horizontal scaling of API and worker pods
-- [ ] Multi-region event replication
-- [ ] SLA monitoring (P99 ingestion latency)
-- [ ] Tenant billing and usage metering
+- Tenant isolation (row-level security in PostgreSQL)
+- Per-tenant Kafka topics
+- Per-tenant rate limits and risk thresholds
+- Kubernetes deployment manifests with HPA
+- Multi-region event replication
+- SLA monitoring (P99 ingestion latency)
+- Tenant billing and usage metering
+- SDK: Python client for easy event ingestion from any service
+
+---
+
+## Content Roadmap (parallel to engineering)
+
+Each phase publishes two posts:
+
+| Phase | Post 1 (Problem) | Post 2 (Technical) |
+|---|---|---|
+| 1+2 | The security problem every fintech ignores | Building the foundation and audit ledger |
+| 3 | How do you audit what an AI agent does? | Building real-time risk intelligence |
+| 4 | Why AI actions need immutable trails | Building the investigation dashboard |
+| 5 | Security infrastructure for AI-native fintechs | Scaling to multi-tenant |
