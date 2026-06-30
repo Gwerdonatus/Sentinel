@@ -295,7 +295,7 @@ Every audit event gets a risk score. AI agents get dedicated identities — name
 
 The audit ledger we built in Phase 2 is the input. Every event we now record cleanly becomes a signal the risk engine scores in real time.
 
-Next post: **"How Do You Audit What an AI Agent Does?"** — the problem Phase 3 solves.
+Next post: **"How Do You Audit What an AI Agent Does?"** — the problem Phase 3 solves, followed by the technical deep-dive on the risk engine itself.
 
 ---
 
