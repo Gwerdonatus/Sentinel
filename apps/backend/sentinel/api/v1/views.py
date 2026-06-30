@@ -39,7 +39,7 @@ class APIRootView(APIView):
         return Response(
             {
                 "service": "sentinel",
-                "version": "2.0.0",
+                "version": "3.0.0",
                 "api_version": "v1",
                 "status": "operational",
                 "timestamp": timezone.now().isoformat(),
@@ -50,13 +50,18 @@ class APIRootView(APIView):
                     "schema": request.build_absolute_uri("/api/schema/"),
                     "auth": request.build_absolute_uri("auth/"),
                     "events": request.build_absolute_uri("events/"),
+                    "alerts": request.build_absolute_uri("alerts/"),
+                    "risk_summary": request.build_absolute_uri("risk/summary/"),
+                    "api_keys": request.build_absolute_uri("api-keys/"),
                 },
                 "features": {
                     "authentication": True,
                     "audit_ledger": True,
-                    "risk_scoring": False,   # Phase 3
-                    "alerting": False,       # Phase 3
-                    "webhooks": False,       # Phase 3
+                    "ai_actor_tracking": True,
+                    "risk_scoring": True,
+                    "alerting": True,
+                    "api_key_management": True,
+                    "webhooks": False,       # Phase 4
                     "dashboard": False,      # Phase 4
                 },
             }

@@ -38,6 +38,25 @@ import uuid
 from django.db import models
 
 
+class ActorType(models.TextChoices):
+    """
+    Type of actor that performed an action.
+
+    HUMAN     — Authenticated human user (identified by email + JWT)
+    SERVICE   — Backend service or automated pipeline (identified by API key)
+    AI_AGENT  — AI model, LLM agent, support bot, MCP server (identified by API key
+                with agent_name and model metadata)
+
+    This is the field that makes Sentinel relevant in the AI era.
+    Every event carries its actor type so investigators can immediately
+    distinguish human actions from automated ones.
+    """
+
+    HUMAN = "HUMAN", "Human User"
+    SERVICE = "SERVICE", "Backend Service"
+    AI_AGENT = "AI_AGENT", "AI Agent"
+
+
 class AuditEventType(models.TextChoices):
     # Authentication
     USER_LOGIN = "USER_LOGIN", "User Login"
@@ -91,6 +110,13 @@ class AuditEvent(models.Model):
         help_text="UUID of the authenticated user who performed this action. "
                   "Null for unauthenticated events (e.g. failed login attempts).",
     )
+    actor_type = models.CharField(
+        max_length=20,
+        choices=ActorType.choices,
+        default=ActorType.HUMAN,
+        db_index=True,
+        help_text="Type of actor: HUMAN, SERVICE, or AI_AGENT.",
+    )
     actor_email = models.EmailField(
         blank=True,
         default="",
@@ -107,6 +133,21 @@ class AuditEvent(models.Model):
         null=True,
         blank=True,
         help_text="IP address of the actor at time of event.",
+    )
+    agent_name = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Name of the AI agent or service. "
+                  "e.g. 'support-bot-v2', 'fraud-detector', 'gpt-4-reconciler'.",
+    )
+    risk_score = models.SmallIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Composite risk score 0-100 computed by the risk engine. "
+                  "Null until risk engine processes this event.",
     )
 
     # WHAT happened

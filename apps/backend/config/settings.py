@@ -65,10 +65,9 @@ SENTINEL_APPS = [
     "sentinel.core",
     "sentinel.auth_service",
     "sentinel.audit",
-    # Phase 3+
-    # "sentinel.risk",
-    # "sentinel.notifications",
-    # "sentinel.webhooks",
+    "sentinel.api_keys",
+    "sentinel.risk",
+    "sentinel.notifications",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + SENTINEL_APPS
@@ -220,6 +219,7 @@ if not DEBUG:
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "sentinel.api_keys.authentication.APIKeyAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [

@@ -1,6 +1,4 @@
-"""
-Sentinel API v1 URL Configuration.
-"""
+"""Sentinel API v1 URL Configuration."""
 
 from django.urls import include, path
 
@@ -12,6 +10,7 @@ urlpatterns = [
     # Phase 2
     path("auth/", include("sentinel.auth_service.urls")),
     path("events/", include("sentinel.audit.urls")),
-    # Phase 3+
-    # path("alerts/", include("sentinel.risk.urls")),
+    # Phase 3
+    path("", include("sentinel.risk.urls")),
+    path("api-keys/", include("sentinel.api_keys.urls")),
 ]

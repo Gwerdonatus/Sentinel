@@ -54,3 +54,6 @@ What else was evaluated?
 | [ADR-009](adr-009-custom-user-model.md) | Custom AbstractBaseUser | Accepted |
 | [ADR-010](adr-010-redis-jwt-blacklist.md) | Redis JWT Blacklist Over DB | Accepted |
 | [ADR-011](adr-011-hmac-audit-signing.md) | HMAC-SHA256 Audit Signatures | Accepted |
+| [ADR-012](adr-012-to-014.md#adr-012-actor_type-as-a-denormalized-field-on-auditevent) | actor_type Denormalized on AuditEvent | Accepted |
+| [ADR-013](adr-012-to-014.md#adr-013-structured-json-conditions-over-a-custom-rule-dsl) | Structured JSON Alert Conditions | Accepted |
+| [ADR-014](adr-012-to-014.md#adr-014-risk-score-persisted-via-direct-update-bypassing-the-immutability-guard) | Risk Score Update Exception | Accepted |

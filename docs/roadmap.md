@@ -46,41 +46,60 @@ Every phase of Sentinel is built with this reality in mind. The audit ledger rec
 
 ---
 
-## Phase 3 — Risk Intelligence & AI Actor Tracking
+## Phase 3 — Risk Intelligence & AI Actor Tracking ✅ Complete
 
 **Goal:** Know when something is wrong before it becomes an incident. Know when AI is behaving anomalously.
 
 **Actor identity model:**
-- Extend audit events to carry `actor_type`: `HUMAN | SERVICE | AI_AGENT`
-- AI agents identified by dedicated API keys with `agent_name` and `model_version` fields
-- Per-actor behavioral profiles — humans and AI agents tracked separately
-- Every AI action attributed to a named agent, not just an anonymous service account
+- `actor_type` field on AuditEvent: `HUMAN | SERVICE | AI_AGENT`
+- `agent_name` and `risk_score` added via non-breaking migration
+- AI agents identified by dedicated API keys with `agent_name`, `agent_version`, `agent_description`
+- Every AI action attributed to a named agent, not an anonymous service account
 
 **Risk scoring engine:**
-- Composite risk score (0–100) on every audit event
-- Signals for human actors: impossible travel, unusual hours, new device, velocity spike
-- Signals for AI actors: anomalous data volume, out-of-scope resource access, prompt injection indicators, rate spikes
-- Baseline behavioral profile per actor, updated on rolling 30-day window
-- Risk score stored on the audit event — queryable historically
+- Composite risk score (0–100) on every audit event, computed async via Celery
+- Human signals: impossible travel (IP subnet heuristic), velocity spike (log-scale baseline comparison), off-hours admin action
+- AI signals: data volume anomaly (10x baseline = exfiltration pattern), new resource type access (scope creep detection)
+- Dominant-signal + secondary-boost scoring algorithm (primary signal drives score, up to +15 from secondary signals)
+- All signals fail open (never crash the pipeline, return 0 on error)
 
 **Alert rule engine:**
-- Rule DSL: `IF risk_score > 80 AND actor_type = AI_AGENT THEN alert`
-- Evaluation on every ingested event (Celery task)
-- Alert state machine: OPEN → ACKNOWLEDGED → RESOLVED
-- Built-in rules: impossible travel, AI data exfiltration pattern, admin action outside business hours
+- Structured JSON conditions (AND/OR composition, 9 operators) — no eval(), no custom DSL parser
+- 5 built-in rules seeded via migration: critical score, high-risk AI agent, impossible travel, off-hours admin, AI new resource type
+- Duplicate suppression window per rule+actor
+- Alert lifecycle: OPEN → ACKNOWLEDGED → RESOLVED
 
 **API Key management:**
-- Keys for human API access and AI agent identity
-- HMAC-SHA256 hashed storage — plain text never stored
-- Per-key scope definitions (read-only, write, admin)
-- Rotation with grace period — old key valid for N hours after rotation
-- Usage tracking per key — feeds into risk scoring
+- `sk_live_`/`sk_test_` key format, HMAC-SHA256 hashed storage, prefix-based O(1) lookup
+- Scoped permissions (`events:write`, `alerts:read`, etc.)
+- Rotation with configurable grace period
+- Usage tracking feeds risk velocity signals
+- Custom DRF authentication backend — Bearer token auth alongside JWT
 
 **Notification engine:**
-- Email (SMTP/SendGrid)
-- Slack webhook
-- PagerDuty
-- Outbound webhook delivery with HMAC signature
+- Slack webhook, email (Django backend), outbound webhook (HMAC-signed)
+- Independent Celery task per channel — one failure doesn't block others
+- Delivery outcome tracked on the Alert record
+
+**New endpoints:**
+```
+GET    /api/v1/alerts/                       List alerts (filtered, paginated)
+GET    /api/v1/alerts/{id}/                  Alert detail
+POST   /api/v1/alerts/{id}/acknowledge/      Acknowledge
+POST   /api/v1/alerts/{id}/resolve/          Resolve
+GET    /api/v1/alerts/rules/                 List rules
+POST   /api/v1/alerts/rules/                 Create rule
+DELETE /api/v1/alerts/rules/{id}/            Deactivate rule
+GET    /api/v1/risk/summary/                 Platform risk summary
+GET    /api/v1/risk/actors/{actor_id}/       Actor risk profile
+GET    /api/v1/api-keys/                     List keys
+POST   /api/v1/api-keys/create/              Create key (AI agent or service)
+GET    /api/v1/api-keys/{id}/                Key detail
+DELETE /api/v1/api-keys/{id}/                Revoke key
+```
+
+- ADRs 012-014: actor_type denormalization, JSON conditions over DSL, risk_score immutability exception
+- 4 new test files: risk engine, evaluator, API keys, integration coverage for alerts/keys
 
 ---
 

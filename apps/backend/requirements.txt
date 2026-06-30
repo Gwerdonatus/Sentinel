@@ -46,8 +46,13 @@ structlog==24.4.*
 # --- API Utilities ---
 drf-spectacular==0.27.*
 
-# --- Kafka (Phase 2 — listed for dependency planning) ---
+# --- Kafka (Phase 4 — listed for dependency planning) ---
 # confluent-kafka==2.5.*
+
+# Phase 3 note: notification delivery (Slack/email/webhook) uses Python stdlib
+# (urllib) and Django's email backend — no new HTTP client dependency added
+# to keep the dependency surface minimal. Swap to httpx if async delivery
+# is needed in Phase 4.
 
 # --- Development Utilities ---
 gunicorn==23.0.*

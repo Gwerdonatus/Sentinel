@@ -61,6 +61,11 @@ def record_audit_event_task(
             metadata=metadata or {},
             request_id=request_id,
         )
+
+        # Trigger risk scoring pipeline for every recorded event
+        from sentinel.risk.tasks import score_and_alert_task
+        score_and_alert_task.delay(str(event.id))
+
         return str(event.id)
 
     except Exception as exc:
