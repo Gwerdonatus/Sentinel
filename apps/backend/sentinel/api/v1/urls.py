@@ -13,4 +13,6 @@ urlpatterns = [
     # Phase 3
     path("", include("sentinel.risk.urls")),
     path("api-keys/", include("sentinel.api_keys.urls")),
+    # Phase 4
+    path("compliance/", include("sentinel.compliance.urls")),
 ]

@@ -39,7 +39,7 @@ class APIRootView(APIView):
         return Response(
             {
                 "service": "sentinel",
-                "version": "3.0.0",
+                "version": "4.0.0",
                 "api_version": "v1",
                 "status": "operational",
                 "timestamp": timezone.now().isoformat(),
@@ -53,6 +53,7 @@ class APIRootView(APIView):
                     "alerts": request.build_absolute_uri("alerts/"),
                     "risk_summary": request.build_absolute_uri("risk/summary/"),
                     "api_keys": request.build_absolute_uri("api-keys/"),
+                    "compliance_reports": request.build_absolute_uri("compliance/reports/"),
                 },
                 "features": {
                     "authentication": True,
@@ -61,8 +62,8 @@ class APIRootView(APIView):
                     "risk_scoring": True,
                     "alerting": True,
                     "api_key_management": True,
-                    "webhooks": False,       # Phase 4
-                    "dashboard": False,      # Phase 4
+                    "compliance_reports": True,
+                    "dashboard": True,
                 },
             }
         )

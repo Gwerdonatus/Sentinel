@@ -68,6 +68,7 @@ SENTINEL_APPS = [
     "sentinel.api_keys",
     "sentinel.risk",
     "sentinel.notifications",
+    "sentinel.compliance",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + SENTINEL_APPS
