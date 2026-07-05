@@ -62,9 +62,13 @@ def record_audit_event_task(
             request_id=request_id,
         )
 
-        # Trigger risk scoring pipeline for every recorded event
+        # Phase 3+: Trigger risk scoring pipeline
         from sentinel.risk.tasks import score_and_alert_task
         score_and_alert_task.delay(str(event.id))
+
+        # Phase 5: Publish to Kafka for durable streaming and downstream consumers
+        from sentinel.kafka.producer import publish_audit_event
+        publish_audit_event(event)
 
         return str(event.id)
 

@@ -57,3 +57,6 @@ What else was evaluated?
 | [ADR-012](adr-012-to-014.md#adr-012-actor_type-as-a-denormalized-field-on-auditevent) | actor_type Denormalized on AuditEvent | Accepted |
 | [ADR-013](adr-012-to-014.md#adr-013-structured-json-conditions-over-a-custom-rule-dsl) | Structured JSON Alert Conditions | Accepted |
 | [ADR-014](adr-012-to-014.md#adr-014-risk-score-persisted-via-direct-update-bypassing-the-immutability-guard) | Risk Score Update Exception | Accepted |
+| [ADR-015](adr-015-to-017.md) | Row-Level Tenant Isolation | Accepted |
+| [ADR-016](adr-015-to-017.md) | Kafka After Postgres | Accepted |
+| [ADR-017](adr-015-to-017.md) | SDK Zero Django Dependency | Accepted |

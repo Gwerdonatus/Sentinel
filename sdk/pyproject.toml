@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "sentinel-sdk"
+version = "0.5.0"
+description = "Python SDK for the Sentinel security and audit platform"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["sentinel", "security", "audit", "fintech", "ai-agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+dependencies = [
+    "httpx>=0.27.0",        # Async-capable HTTP client
+    "structlog>=24.0.0",    # Structured logging
+]
+
+[project.optional-dependencies]
+async = ["httpx[asyncio]>=0.27.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",          # httpx mock library
+    "mypy>=1.12",
+    "ruff>=0.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/Gwerdonatus/Sentinel"
+Documentation = "https://docs.sentinel.io"
+Repository = "https://github.com/Gwerdonatus/Sentinel"
+Issues = "https://github.com/Gwerdonatus/Sentinel/issues"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["sentinel_sdk/tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100

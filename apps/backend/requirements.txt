@@ -49,8 +49,8 @@ drf-spectacular==0.27.*
 # --- Compliance Reports (Phase 4) ---
 reportlab==4.2.*
 
-# --- Kafka (Phase 5 — listed for dependency planning) ---
-# confluent-kafka==2.5.*
+# --- Kafka (Phase 5) ---
+confluent-kafka==2.5.*
 
 # --- Development Utilities ---
 gunicorn==23.0.*

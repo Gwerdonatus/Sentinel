@@ -28,6 +28,8 @@ x-backend-env: &backend-env
   JWT_SIGNING_KEY: local-dev-jwt-signing-key-change-in-production-minimum-50-chars
   JWT_ACCESS_TOKEN_LIFETIME_MINUTES: "15"
   JWT_REFRESH_TOKEN_LIFETIME_DAYS: "7"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_ENABLED: "True"
 
 services:
 
@@ -234,8 +236,69 @@ services:
       - sentinel_net
 
   # ---------------------------------------------------------------------------
-  # OpenTelemetry Collector
+  # Kafka (Phase 5 — event streaming)
   # ---------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.0
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - sentinel_net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168  # 7 days default
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    ports:
+      - "29092:29092"  # Host access for development tools
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - sentinel_net
+
+  # Kafka consumer worker (Phase 5)
+  kafka-consumer:
+    build:
+      context: ./apps/backend
+      dockerfile: ../../infra/docker/Dockerfile.backend
+      target: runtime
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_ENABLED: "True"
+    volumes:
+      - ./apps/backend:/app
+    command: python manage.py run_kafka_consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - sentinel_net
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.109.0
     restart: unless-stopped
@@ -289,7 +352,12 @@ services:
     networks:
       - sentinel_net
 
-volumes:
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
   postgres_data:
     driver: local
   redis_data:

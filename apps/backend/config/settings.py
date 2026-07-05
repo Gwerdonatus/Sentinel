@@ -69,6 +69,8 @@ SENTINEL_APPS = [
     "sentinel.risk",
     "sentinel.notifications",
     "sentinel.compliance",
+    "sentinel.tenants",
+    "sentinel.kafka",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + SENTINEL_APPS
@@ -300,6 +302,16 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Disable prefetch for fair task distribution
+
+# =============================================================================
+# Kafka (Phase 5)
+# =============================================================================
+KAFKA_BOOTSTRAP_SERVERS: str = config("KAFKA_BOOTSTRAP_SERVERS", default="kafka:9092")
+KAFKA_ENABLED: bool = config("KAFKA_ENABLED", default=False, cast=bool)
+# Individual topic names (used when tenant_id is not available)
+KAFKA_TOPIC_AUDIT_EVENTS: str = config("KAFKA_TOPIC_AUDIT_EVENTS", default="sentinel.default.audit.events")
+KAFKA_TOPIC_RISK_SCORES: str = config("KAFKA_TOPIC_RISK_SCORES", default="sentinel.default.risk.scores")
+KAFKA_TOPIC_ALERTS: str = config("KAFKA_TOPIC_ALERTS", default="sentinel.default.alerts")
 
 # =============================================================================
 # Logging — Structured JSON via structlog
