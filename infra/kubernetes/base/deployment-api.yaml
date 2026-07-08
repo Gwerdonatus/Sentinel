@@ -1,0 +1,127 @@
+---
+# =============================================================================
+# Sentinel API Deployment
+#
+# 3 replicas minimum. HPA scales to 10 based on CPU and request latency.
+# Rolling update: maxSurge=1, maxUnavailable=0 — zero-downtime deploys.
+# Pod anti-affinity: replicas spread across availability zones.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-api
+  namespace: sentinel
+  labels:
+    app.kubernetes.io/name: sentinel
+    app.kubernetes.io/component: api
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sentinel
+      app.kubernetes.io/component: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0    # Zero downtime — always keep 3 healthy pods running
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sentinel
+        app.kubernetes.io/component: api
+      annotations:
+        # Prometheus scraping — auto-discovered by Prometheus operator
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: sentinel-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      # Spread replicas across availability zones
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: api
+      initContainers:
+        # Run migrations before the API starts — only runs on one pod per deploy
+        # thanks to Kubernetes init container semantics (runs per-pod but
+        # migrate is idempotent so concurrent runs are safe)
+        - name: migrate
+          image: ghcr.io/gwerdonatus/sentinel-backend:latest
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: sentinel-config
+            - secretRef:
+                name: sentinel-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+      containers:
+        - name: api
+          image: ghcr.io/gwerdonatus/sentinel-backend:latest
+          # Image digest pinned by CD pipeline — never use :latest in production
+          # This is a placeholder; the CD pipeline replaces it with @sha256:...
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: sentinel-config
+            - secretRef:
+                name: sentinel-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /health/live/
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready/
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          startupProbe:
+            httpGet:
+              path: /health/live/
+              port: http
+            failureThreshold: 30    # 30 × 10s = 5 minutes max startup time
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: staticfiles
+              mountPath: /app/staticfiles
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: staticfiles
+          emptyDir: {}

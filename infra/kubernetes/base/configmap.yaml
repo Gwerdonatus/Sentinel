@@ -1,0 +1,32 @@
+---
+# =============================================================================
+# Sentinel ConfigMap — non-secret runtime configuration.
+# Secret values (SECRET_KEY, DATABASE_URL, etc.) are in sentinel-secrets.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-config
+  namespace: sentinel
+  labels:
+    app.kubernetes.io/name: sentinel
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: "production"
+  DEBUG: "False"
+  ALLOWED_HOSTS: "api.sentinel.io,sentinel.io"
+  CORS_ALLOWED_ORIGINS: "https://app.sentinel.io"
+  LOG_LEVEL: "INFO"
+  OTEL_ENABLED: "True"
+  OTEL_SERVICE_NAME: "sentinel-backend"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4317"
+  KAFKA_ENABLED: "True"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.sentinel.svc.cluster.local:9092"
+  KAFKA_TOPIC_AUDIT_EVENTS: "sentinel.default.audit.events"
+  KAFKA_TOPIC_RISK_SCORES: "sentinel.default.risk.scores"
+  KAFKA_TOPIC_ALERTS: "sentinel.default.alerts"
+  JWT_ACCESS_TOKEN_LIFETIME_MINUTES: "15"
+  JWT_REFRESH_TOKEN_LIFETIME_DAYS: "7"
+  THROTTLE_ANON_RATE: "60/minute"
+  THROTTLE_USER_RATE: "1000/minute"
+  DATABASE_CONN_MAX_AGE: "60"

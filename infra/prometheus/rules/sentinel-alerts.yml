@@ -1,0 +1,216 @@
+---
+# =============================================================================
+# Sentinel Prometheus Alerting Rules
+#
+# These are INFRASTRUCTURE alerts — Prometheus watching Sentinel's health.
+# Distinct from Sentinel's own application-level alert rules (AlertRule model).
+#
+# Two alert paths in the platform:
+#   1. Application alerts: Sentinel's risk engine fires AlertRule conditions
+#      → stored in PostgreSQL, notified via Slack/email/webhook
+#   2. Infrastructure alerts: Prometheus fires these rules
+#      → routed via Alertmanager to PagerDuty/Slack for the ops team
+#
+# SLA THRESHOLDS (defined here, reported on in compliance reports):
+#   - Event ingestion p99 latency < 500ms
+#   - Risk scoring p99 latency < 1000ms
+#   - API error rate < 1% over 5 minutes
+#   - Zero missed events over any 5-minute window
+#   - Kafka consumer lag < 1000 events per partition
+# =============================================================================
+
+groups:
+  # ---------------------------------------------------------------------------
+  # API Health
+  # ---------------------------------------------------------------------------
+  - name: sentinel.api.health
+    interval: 30s
+    rules:
+
+      - alert: SentinelAPIDown
+        expr: up{job="sentinel-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Sentinel API is unreachable"
+          description: >
+            The Sentinel backend has been unreachable by Prometheus for more than 1 minute.
+            All event ingestion and dashboard access is affected.
+            Runbook: https://docs.sentinel.io/runbooks/api-down
+
+      - alert: SentinelAPIHighErrorRate
+        expr: |
+          (
+            rate(django_http_responses_total_by_status_view_method_total{
+              job="sentinel-backend",
+              status=~"5.."
+            }[5m])
+            /
+            rate(django_http_responses_total_by_status_view_method_total{
+              job="sentinel-backend"
+            }[5m])
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: high
+          component: api
+        annotations:
+          summary: "Sentinel API error rate exceeds 1%"
+          description: >
+            The API 5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            SLA threshold: < 1%.
+
+      - alert: SentinelAPIHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            rate(django_http_requests_latency_seconds_by_view_method_bucket{
+              job="sentinel-backend",
+              view=~".*ingest.*"
+            }[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: high
+          component: api
+          sla: event_ingestion_p99
+        annotations:
+          summary: "Sentinel event ingestion p99 latency exceeds 500ms"
+          description: >
+            Event ingestion p99 latency is {{ $value | humanizeDuration }}.
+            SLA threshold: 500ms. This may indicate database or risk engine pressure.
+
+      - alert: SentinelRiskScoringHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            rate(celery_task_runtime_seconds_bucket{
+              job="sentinel-backend",
+              task_name="sentinel.risk.score_and_alert"
+            }[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: medium
+          component: risk-engine
+          sla: risk_scoring_p99
+        annotations:
+          summary: "Risk scoring p99 latency exceeds 1 second"
+          description: >
+            Risk scoring task p99 is {{ $value | humanizeDuration }}.
+            SLA threshold: 1000ms. Check PostgreSQL query performance.
+
+  # ---------------------------------------------------------------------------
+  # Audit Pipeline Integrity
+  # ---------------------------------------------------------------------------
+  - name: sentinel.audit.integrity
+    interval: 60s
+    rules:
+
+      - alert: SentinelAuditPipelineStalled
+        expr: |
+          rate(django_http_requests_total_by_view_transport_method_total{
+            job="sentinel-backend",
+            view="audit-event-ingest"
+          }[5m]) == 0
+          and
+          on() hour() >= 8 and hour() <= 22
+        for: 5m
+        labels:
+          severity: high
+          component: audit
+        annotations:
+          summary: "No audit events ingested in the last 5 minutes during business hours"
+          description: >
+            Zero audit events have been received during business hours for 5 minutes.
+            This may indicate a client SDK issue or an ingest endpoint failure.
+            Runbook: https://docs.sentinel.io/runbooks/audit-pipeline
+
+      - alert: SentinelHighRiskEventSpike
+        expr: |
+          rate(django_http_requests_total_by_view_transport_method_total{
+            job="sentinel-backend",
+            view="audit-event-ingest"
+          }[1m]) > 1000
+        for: 2m
+        labels:
+          severity: medium
+          component: audit
+        annotations:
+          summary: "Unusually high audit event ingestion rate"
+          description: >
+            Ingestion rate is {{ $value | humanize }} events/second.
+            This may be a legitimate load spike or a misconfigured client sending duplicate events.
+
+  # ---------------------------------------------------------------------------
+  # Kafka Consumer Health
+  # ---------------------------------------------------------------------------
+  - name: sentinel.kafka.health
+    interval: 30s
+    rules:
+
+      - alert: SentinelKafkaConsumerLagHigh
+        expr: |
+          kafka_consumergroup_lag{
+            consumergroup=~"sentinel-risk-engine-.*"
+          } > 1000
+        for: 5m
+        labels:
+          severity: high
+          component: kafka-consumer
+        annotations:
+          summary: "Kafka consumer lag exceeds 1000 events"
+          description: >
+            Consumer group {{ $labels.consumergroup }} has {{ $value }} unprocessed events
+            on topic {{ $labels.topic }}.
+            Risk scores are falling behind. Scale the kafka-consumer deployment.
+            Runbook: https://docs.sentinel.io/runbooks/kafka-consumer-lag
+
+      - alert: SentinelKafkaConsumerDown
+        expr: |
+          absent(kafka_consumergroup_lag{
+            consumergroup=~"sentinel-risk-engine-.*"
+          })
+        for: 5m
+        labels:
+          severity: critical
+          component: kafka-consumer
+        annotations:
+          summary: "Sentinel Kafka consumer is not running"
+          description: >
+            No Kafka consumer group metrics found for sentinel-risk-engine.
+            Risk scoring from the Kafka pipeline has stopped.
+            Events are still being recorded in PostgreSQL.
+
+  # ---------------------------------------------------------------------------
+  # Resource Pressure
+  # ---------------------------------------------------------------------------
+  - name: sentinel.resources
+    interval: 60s
+    rules:
+
+      - alert: SentinelDatabaseConnectionsHigh
+        expr: |
+          pg_stat_database_numbackends{datname="sentinel_db"} > 80
+        for: 5m
+        labels:
+          severity: high
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL connection count approaching limit"
+          description: >
+            Active connections: {{ $value }}. Limit: 100.
+            Consider enabling PgBouncer or reducing CONN_MAX_AGE.
+
+      - alert: SentinelRedisMemoryHigh
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: medium
+          component: redis
+        annotations:
+          summary: "Redis memory usage above 85%"
+          description: >
+            Redis is using {{ $value | humanizePercentage }} of available memory.
+            JWT blacklist entries and Celery queues may be competing for space.

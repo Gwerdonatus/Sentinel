@@ -41,13 +41,19 @@ Sentinel does **not** process money. It is the trust layer between actors — hu
 | Immutable Audit Ledger | Tamper-evident, HMAC-signed record of every action by every actor | ✅ Phase 2 |
 | JWT Auth + RBAC | Email-first auth, role-based access, Redis token blacklist | ✅ Phase 2 |
 | Health + Observability | OpenTelemetry traces, Prometheus metrics, structured logging | ✅ Phase 1 |
-| Event Streaming (Kafka) | Ordered, durable, replayable event pipeline at scale | 🔜 Phase 3 |
-| Risk Intelligence Engine | Real-time behavioral scoring — humans and AI agents alike | 🔜 Phase 3 |
-| AI Actor Tracking | Identify, attribute, and audit AI agent actions separately from humans | 🔜 Phase 3 |
-| Alert Rule Engine | Condition-based alerts when risk score or behavior crosses threshold | 🔜 Phase 3 |
-| API Key Management | Scoped keys with rotation, usage tracking, and per-key audit trail | 🔜 Phase 3 |
-| Dashboard | Investigation UI, actor timelines, compliance reports | 🔜 Phase 4 |
-| Compliance Reports | PCI-DSS, SOC 2 evidence export with AI action attribution | 🔜 Phase 4 |
+| AI Actor Tracking | Named AI agents, actor_type field, behavioral baselines | ✅ Phase 3 |
+| Risk Intelligence Engine | Real-time behavioral scoring — humans and AI agents alike | ✅ Phase 3 |
+| Alert Rule Engine | JSON conditions, 5 built-in rules, Slack/email/webhook delivery | ✅ Phase 3 |
+| API Key Management | Scoped keys, HMAC-SHA256 storage, rotation, AI agent identity | ✅ Phase 3 |
+| Dashboard | Next.js, BFF auth, actor timeline, alert inbox | ✅ Phase 4 |
+| Compliance Reports | PDF/CSV/JSON with AI actor attribution | ✅ Phase 4 |
+| Multi-tenancy | Row-level isolation, per-tenant Kafka topics | ✅ Phase 5 |
+| Kafka Streaming | Per-tenant topics, exactly-once, graceful consumer shutdown | ✅ Phase 5 |
+| Python SDK | Sync + async, fail_silent, AI agent attribution built in | ✅ Phase 5 |
+| Kubernetes Manifests | HPA, rolling deploys, zero-downtime, pod anti-affinity | ✅ Phase 6 |
+| Prometheus Alerting | SLA rules, consumer lag, API error rate, pipeline integrity | ✅ Phase 6 |
+| CD Pipeline | GHCR push, image digest pinning, staging → prod gate | ✅ Phase 6 |
+| Operational Runbooks | Investigation, Kafka lag, deployment/rollback procedures | ✅ Phase 6 |
 
 ---
 

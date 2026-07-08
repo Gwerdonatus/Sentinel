@@ -10,9 +10,15 @@ global:
     service: sentinel
     environment: development
 
-# Alert rules (Phase 3+)
-# rule_files:
-#   - /etc/prometheus/rules/*.yml
+# Alerting rules
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Alertmanager (configure in production)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ["alertmanager:9093"]
 
 scrape_configs:
 
@@ -23,21 +29,12 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 15s
 
-  # Celery worker metrics via Flower API (Phase 2+)
-  # - job_name: "sentinel-celery"
-  #   static_configs:
-  #     - targets: ["flower:5555"]
-  #   metrics_path: /metrics
-
-  # PostgreSQL exporter (Phase 2+)
-  # - job_name: "postgresql"
-  #   static_configs:
-  #     - targets: ["postgres-exporter:9187"]
-
-  # Redis exporter (Phase 2+)
-  # - job_name: "redis"
-  #   static_configs:
-  #     - targets: ["redis-exporter:9121"]
+  # Celery worker metrics via Flower API
+  - job_name: "sentinel-celery"
+    static_configs:
+      - targets: ["flower:5555"]
+    metrics_path: /metrics
+    scrape_interval: 30s
 
   # OpenTelemetry Collector self-metrics
   - job_name: "otel-collector"
@@ -49,3 +46,18 @@ scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+
+  # Kafka consumer lag (via kafka-exporter — add to docker-compose for full monitoring)
+  # - job_name: "kafka"
+  #   static_configs:
+  #     - targets: ["kafka-exporter:9308"]
+
+  # PostgreSQL exporter
+  # - job_name: "postgresql"
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]
+
+  # Redis exporter
+  # - job_name: "redis"
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]

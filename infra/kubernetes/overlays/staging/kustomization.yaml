@@ -1,0 +1,34 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sentinel-staging
+
+resources:
+  - ../../base
+
+patches:
+  # Staging: 1 replica each — enough to test, cheap to run
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: sentinel-api
+
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: sentinel-worker
+
+configMapGenerator:
+  - name: sentinel-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=DEBUG
+      - DEBUG=False

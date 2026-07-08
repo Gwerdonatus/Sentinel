@@ -137,6 +137,24 @@ DELETE /api/v1/api-keys/{id}/                Revoke key
 
 ---
 
+
+## Phase 6 — Production Operations ✅ Complete
+
+**Goal:** Make the platform production-reliable, observable, and deployable by someone other than its author.
+
+- Kubernetes manifests: base + overlays (staging, production) via Kustomize
+- API deployment: 3-replica minimum, HPA to 10, pod anti-affinity across AZs
+- Worker deployment: 2-replica minimum, 120s graceful shutdown for in-flight tasks
+- Kafka consumer: `Recreate` strategy (no mid-deploy rebalancing), SIGTERM handler
+- ConfigMap/Secret separation: non-secret config in ConfigMap, credentials in Secret
+- HPA: CPU + memory metrics for API, CPU proxy for worker queue depth
+- Prometheus alerting rules: 8 rules covering SLA thresholds, pipeline integrity, resource pressure
+- GitHub Actions CD pipeline: build → push GHCR → deploy staging → smoke test → deploy production (manual gate)
+- Image digest pinning: `:latest` replaced with `@sha256:...` on every deploy
+- 3 operational runbooks: incident investigation, Kafka consumer lag, deployment/rollback
+- ADRs 015-017: tenant isolation, Kafka-after-Postgres, SDK zero-Django-dependency
+
+---
 ## Content Roadmap (parallel to engineering)
 
 Each phase publishes two posts:

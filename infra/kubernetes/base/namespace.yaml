@@ -1,0 +1,12 @@
+---
+# =============================================================================
+# Sentinel Kubernetes — Namespace
+# All Sentinel resources live in the sentinel namespace.
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinel
+  labels:
+    app.kubernetes.io/name: sentinel
+    app.kubernetes.io/managed-by: kubectl

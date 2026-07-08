@@ -1,0 +1,21 @@
+---
+# =============================================================================
+# Kustomize Base
+# All environments (staging, production) reference this base.
+# Overlays patch specific values (replica counts, image tags, resource limits).
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sentinel
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - deployment-api.yaml
+  - deployment-worker.yaml
+  - services.yaml
+
+commonLabels:
+  app.kubernetes.io/name: sentinel
+  app.kubernetes.io/managed-by: kustomize

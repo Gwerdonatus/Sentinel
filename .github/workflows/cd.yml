@@ -1,0 +1,213 @@
+---
+# =============================================================================
+# Sentinel — Continuous Deployment Pipeline
+#
+# Triggers on push to main (after CI passes).
+# Flow:
+#   1. Build Docker images (backend + frontend)
+#   2. Push to GitHub Container Registry (GHCR) with image digest
+#   3. Deploy to staging (automatic)
+#   4. Run smoke tests against staging
+#   5. Deploy to production (requires manual approval)
+#
+# Required GitHub Secrets:
+#   KUBECONFIG_STAGING     — base64-encoded kubeconfig for staging cluster
+#   KUBECONFIG_PRODUCTION  — base64-encoded kubeconfig for production cluster
+#   SENTINEL_STAGING_URL   — https://api.staging.sentinel.io
+#   SENTINEL_PROD_URL      — https://api.sentinel.io
+# =============================================================================
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - "apps/frontend/**"
+      - "infra/kubernetes/**"
+      - "infra/docker/**"
+
+permissions:
+  contents: read
+  packages: write    # Push to GHCR
+  id-token: write    # OIDC for cloud provider auth
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/gwerdonatus/sentinel-backend
+  FRONTEND_IMAGE: ghcr.io/gwerdonatus/sentinel-frontend
+
+jobs:
+
+  # ===========================================================================
+  # Build & Push Docker Images
+  # ===========================================================================
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    outputs:
+      backend-digest: ${{ steps.build-backend.outputs.digest }}
+      frontend-digest: ${{ steps.build-frontend.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend
+        id: build-backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/backend
+          file: ./infra/docker/Dockerfile.backend
+          target: runtime
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend
+        id: build-frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/frontend
+          file: ./infra/docker/Dockerfile.frontend
+          target: runtime
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.sentinel.io
+            NEXT_PUBLIC_APP_ENV=production
+
+  # ===========================================================================
+  # Deploy to Staging
+  # ===========================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://api.staging.sentinel.io
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig.yaml
+          echo "KUBECONFIG=$(pwd)/kubeconfig.yaml" >> $GITHUB_ENV
+
+      - name: Pin image digests in manifests
+        run: |
+          # Replace :latest with the exact digest for immutable deploys
+          BACKEND_DIGEST="${{ needs.build.outputs.backend-digest }}"
+          FRONTEND_DIGEST="${{ needs.build.outputs.frontend-digest }}"
+          sed -i "s|sentinel-backend:latest|sentinel-backend@${BACKEND_DIGEST}|g" \
+            infra/kubernetes/overlays/staging/kustomization.yaml
+
+      - name: Apply staging manifests
+        run: |
+          kubectl apply -k infra/kubernetes/overlays/staging
+          kubectl rollout status deployment/sentinel-api -n sentinel-staging --timeout=5m
+          kubectl rollout status deployment/sentinel-worker -n sentinel-staging --timeout=5m
+
+      - name: Run smoke tests against staging
+        env:
+          STAGING_URL: ${{ secrets.SENTINEL_STAGING_URL }}
+        run: |
+          # Health check
+          curl -f "${STAGING_URL}/health/live/" || exit 1
+
+          # API root responds
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/v1/")
+          if [ "$STATUS" != "200" ]; then
+            echo "API root returned $STATUS, expected 200"
+            exit 1
+          fi
+
+          echo "Smoke tests passed"
+
+  # ===========================================================================
+  # Deploy to Production (requires manual approval)
+  # ===========================================================================
+  deploy-production:
+    name: Deploy to Production
+    needs: [build, deploy-staging]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.sentinel.io
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > kubeconfig.yaml
+          echo "KUBECONFIG=$(pwd)/kubeconfig.yaml" >> $GITHUB_ENV
+
+      - name: Pin image digest in production manifests
+        run: |
+          BACKEND_DIGEST="${{ needs.build.outputs.backend-digest }}"
+          sed -i "s|sentinel-backend:latest|sentinel-backend@${BACKEND_DIGEST}|g" \
+            infra/kubernetes/overlays/production/kustomization.yaml
+
+      - name: Deploy to production
+        run: |
+          kubectl apply -k infra/kubernetes/overlays/production
+          kubectl rollout status deployment/sentinel-api -n sentinel --timeout=10m
+          kubectl rollout status deployment/sentinel-worker -n sentinel --timeout=10m
+          kubectl rollout status deployment/sentinel-kafka-consumer -n sentinel --timeout=5m
+
+      - name: Verify production health
+        env:
+          PROD_URL: ${{ secrets.SENTINEL_PROD_URL }}
+        run: |
+          sleep 30  # Allow load balancer to route to new pods
+          curl -f "${PROD_URL}/health/ready/" || exit 1
+          echo "Production deployment verified"
+
+      - name: Tag successful deployment
+        run: |
+          git tag "deploy-production-$(date +%Y%m%d-%H%M%S)"
+          git push --tags
