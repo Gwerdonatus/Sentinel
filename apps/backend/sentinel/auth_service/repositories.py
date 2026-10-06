@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 
 from django.db import IntegrityError
+from django.db.models import QuerySet
 
 from sentinel.auth_service.models import SentinelUser
 from sentinel.core.exceptions.base import SentinelConflictError, SentinelNotFoundError
@@ -63,6 +64,7 @@ class UserRepository:
         user.save(update_fields=["role", "updated_at"])
         return user
 
-    def list_active(self) -> "models.QuerySet[SentinelUser]":
+    def list_active(self) -> QuerySet[SentinelUser]:
         from sentinel.auth_service.models import SentinelUser as M
+
         return M.objects.filter(is_active=True).order_by("-created_at")

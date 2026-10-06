@@ -31,20 +31,10 @@ import time
 from typing import Any
 
 import structlog
-from django.db import DatabaseError, connection
 from django.http import JsonResponse
 from django.views import View
-from redis import ConnectionError as RedisConnectionError
-from redis import Redis
-from redis import TimeoutError as RedisTimeoutError
 
-from sentinel.core.health.checks import (
-    CheckResult,
-    CheckStatus,
-    check_celery,
-    check_database,
-    check_redis,
-)
+from sentinel.core.health import checks as health_checks
 
 logger = structlog.get_logger(__name__)
 
@@ -70,11 +60,11 @@ class ReadinessView(View):
 
     def get(self, request: Any) -> JsonResponse:
         checks = [
-            check_database(),
-            check_redis(),
+            health_checks.check_database(),
+            health_checks.check_redis(),
         ]
 
-        all_healthy = all(c.status == CheckStatus.OK for c in checks)
+        all_healthy = all(c.status == health_checks.CheckStatus.OK for c in checks)
         http_status = 200 if all_healthy else 503
 
         return JsonResponse(
@@ -98,19 +88,23 @@ class HealthSummaryView(View):
         start = time.perf_counter()
 
         checks = [
-            check_database(),
-            check_redis(),
-            check_celery(),
+            health_checks.check_database(),
+            health_checks.check_redis(),
+            health_checks.check_celery(),
         ]
 
-        all_healthy = all(c.status == CheckStatus.OK for c in checks)
+        all_healthy = all(c.status == health_checks.CheckStatus.OK for c in checks)
         total_ms = round((time.perf_counter() - start) * 1000, 2)
         http_status = 200 if all_healthy else 503
 
         if not all_healthy:
             logger.warning(
                 "health_check_failed",
-                checks={c.name: c.status.value for c in checks if c.status != CheckStatus.OK},
+                checks={
+                    c.name: c.status.value
+                    for c in checks
+                    if c.status != health_checks.CheckStatus.OK
+                },
                 total_ms=total_ms,
             )
 

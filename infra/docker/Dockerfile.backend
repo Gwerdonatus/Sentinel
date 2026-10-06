@@ -47,7 +47,7 @@ ENV OTEL_ENABLED=False
 ENV CELERY_BROKER_URL=redis://localhost:6379/1
 ENV CELERY_RESULT_BACKEND=redis://localhost:6379/2
 
-RUN python manage.py collectstatic --noinput --verbosity 0
+RUN python -m django collectstatic --noinput --verbosity 0
 
 USER sentinel
 

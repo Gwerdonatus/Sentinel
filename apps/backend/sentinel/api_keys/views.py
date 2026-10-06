@@ -15,7 +15,6 @@ from sentinel.api_keys.models import APIKey
 from sentinel.api_keys.serializers import (
     APIKeyCreateSerializer,
     APIKeyResponseSerializer,
-    APIKeyCreatedResponseSerializer,
 )
 from sentinel.api_keys.services import APIKeyService
 from sentinel.auth_service.permissions import IsAdmin

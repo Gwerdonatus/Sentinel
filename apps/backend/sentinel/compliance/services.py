@@ -23,7 +23,6 @@ import uuid
 from datetime import datetime
 
 import structlog
-from django.conf import settings
 from django.db.models import Count, QuerySet
 from django.utils import timezone
 
@@ -56,6 +55,7 @@ class ComplianceReportService:
         )
 
         from sentinel.compliance.tasks import generate_report_task
+
         generate_report_task.delay(str(report.id))
 
         logger.info(
@@ -72,7 +72,6 @@ class ComplianceReportService:
         Generate the report file. Called from the async task.
         Updates report status throughout: PENDING -> GENERATING -> READY/FAILED.
         """
-        from sentinel.audit.models import AuditEvent
 
         try:
             report = ComplianceReport.objects.get(id=uuid.UUID(report_id))
@@ -151,7 +150,9 @@ class ComplianceReportService:
         total = events.count()
 
         by_actor_type = dict(
-            events.values("actor_type").annotate(count=Count("id")).values_list("actor_type", "count")
+            events.values("actor_type")
+            .annotate(count=Count("id"))
+            .values_list("actor_type", "count")
         )
 
         ai_agents = list(
@@ -165,7 +166,9 @@ class ComplianceReportService:
         high_risk_count = events.filter(risk_score__gte=50).count()
 
         by_event_type = dict(
-            events.values("event_type").annotate(count=Count("id")).order_by("-count")[:10]
+            events.values("event_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:10]
             .values_list("event_type", "count")
         )
 
@@ -181,16 +184,33 @@ class ComplianceReportService:
     def _render_csv(self, report: ComplianceReport, events: "QuerySet") -> tuple[bytes, str]:
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow([
-            "Timestamp", "Event Type", "Actor Type", "Actor Email",
-            "Agent Name", "Resource Type", "Resource ID", "Risk Score", "Request ID",
-        ])
+        writer.writerow(
+            [
+                "Timestamp",
+                "Event Type",
+                "Actor Type",
+                "Actor Email",
+                "Agent Name",
+                "Resource Type",
+                "Resource ID",
+                "Risk Score",
+                "Request ID",
+            ]
+        )
         for e in events.iterator(chunk_size=1000):
-            writer.writerow([
-                e.created_at.isoformat(), e.event_type, e.actor_type,
-                e.actor_email, e.agent_name, e.resource_type,
-                e.resource_id, e.risk_score or "", e.request_id,
-            ])
+            writer.writerow(
+                [
+                    e.created_at.isoformat(),
+                    e.event_type,
+                    e.actor_type,
+                    e.actor_email,
+                    e.agent_name,
+                    e.resource_type,
+                    e.resource_id,
+                    e.risk_score or "",
+                    e.request_id,
+                ]
+            )
 
         content = buffer.getvalue().encode("utf-8")
         file_path = f"compliance-reports/{report.id}.csv"
@@ -232,30 +252,49 @@ class ComplianceReportService:
     ) -> tuple[bytes, str]:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import inch
         from reportlab.platypus import (
-            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
+            PageBreak,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
         )
 
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.75 * inch, bottomMargin=0.75 * inch)
+        doc = SimpleDocTemplate(
+            buffer, pagesize=letter, topMargin=0.75 * inch, bottomMargin=0.75 * inch
+        )
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle("SentinelTitle", parent=styles["Title"], fontSize=20, spaceAfter=6)
-        heading_style = ParagraphStyle("SentinelHeading", parent=styles["Heading2"], spaceBefore=16, spaceAfter=8)
+        title_style = ParagraphStyle(
+            "SentinelTitle", parent=styles["Title"], fontSize=20, spaceAfter=6
+        )
+        heading_style = ParagraphStyle(
+            "SentinelHeading", parent=styles["Heading2"], spaceBefore=16, spaceAfter=8
+        )
 
         elements: list[object] = []
 
         # Header
-        elements.append(Paragraph(f"Sentinel Compliance Report — {report.get_report_type_display()}", title_style))
-        elements.append(Paragraph(
-            f"Period: {report.from_dt.strftime('%Y-%m-%d')} to {report.to_dt.strftime('%Y-%m-%d')}",
-            styles["Normal"],
-        ))
-        elements.append(Paragraph(
-            f"Generated: {timezone.now().strftime('%Y-%m-%d %H:%M UTC')}",
-            styles["Normal"],
-        ))
+        elements.append(
+            Paragraph(
+                f"Sentinel Compliance Report — {report.get_report_type_display()}", title_style
+            )
+        )
+        elements.append(
+            Paragraph(
+                f"Period: {report.from_dt.strftime('%Y-%m-%d')} to {report.to_dt.strftime('%Y-%m-%d')}",
+                styles["Normal"],
+            )
+        )
+        elements.append(
+            Paragraph(
+                f"Generated: {timezone.now().strftime('%Y-%m-%d %H:%M UTC')}",
+                styles["Normal"],
+            )
+        )
         elements.append(Spacer(1, 0.3 * inch))
 
         # Summary — actor type breakdown is the headline
@@ -264,13 +303,17 @@ class ComplianceReportService:
         for actor_type, count in summary["by_actor_type"].items():
             actor_rows.append([actor_type, str(count)])
         actor_table = Table(actor_rows, colWidths=[3 * inch, 2 * inch])
-        actor_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e1b4b")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f5f5f5")),
-        ]))
+        actor_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e1b4b")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f5f5f5")),
+                ]
+            )
+        )
         elements.append(actor_table)
 
         # AI agent attribution — the distinguishing section
@@ -280,17 +323,23 @@ class ComplianceReportService:
             for agent in summary["ai_agents_involved"]:
                 ai_rows.append([agent["agent_name"], str(agent["event_count"])])
             ai_table = Table(ai_rows, colWidths=[3 * inch, 2 * inch])
-            ai_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#6366f1")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ]))
+            ai_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#6366f1")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("FONTSIZE", (0, 0), (-1, -1), 9),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                    ]
+                )
+            )
             elements.append(ai_table)
-            elements.append(Paragraph(
-                f"Total high-risk events (score ≥ 50) in this period: {summary['high_risk_event_count']}",
-                styles["Normal"],
-            ))
+            elements.append(
+                Paragraph(
+                    f"Total high-risk events (score ≥ 50) in this period: {summary['high_risk_event_count']}",
+                    styles["Normal"],
+                )
+            )
 
         elements.append(Spacer(1, 0.3 * inch))
         elements.append(Paragraph(f"Total Events: {summary['total_events']}", styles["Heading3"]))
@@ -301,23 +350,31 @@ class ComplianceReportService:
         detail_rows = [["Timestamp", "Event Type", "Actor", "Risk"]]
         for e in events.iterator(chunk_size=1000):
             actor_label = e.agent_name or e.actor_email or e.actor_type
-            detail_rows.append([
-                e.created_at.strftime("%Y-%m-%d %H:%M"),
-                e.event_type,
-                actor_label[:30],
-                str(e.risk_score) if e.risk_score is not None else "-",
-            ])
+            detail_rows.append(
+                [
+                    e.created_at.strftime("%Y-%m-%d %H:%M"),
+                    e.event_type,
+                    actor_label[:30],
+                    str(e.risk_score) if e.risk_score is not None else "-",
+                ]
+            )
             if len(detail_rows) > 2000:  # Cap PDF size
                 detail_rows.append(["...", "truncated", "...", "..."])
                 break
 
-        detail_table = Table(detail_rows, colWidths=[1.3 * inch, 1.8 * inch, 2.4 * inch, 0.6 * inch])
-        detail_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e1b4b")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
-        ]))
+        detail_table = Table(
+            detail_rows, colWidths=[1.3 * inch, 1.8 * inch, 2.4 * inch, 0.6 * inch]
+        )
+        detail_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e1b4b")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                ]
+            )
+        )
         elements.append(detail_table)
 
         doc.build(elements)
@@ -328,6 +385,7 @@ class ComplianceReportService:
 
     @staticmethod
     def _save_file(file_path: str, content: bytes) -> None:
-        from django.core.files.storage import default_storage
         from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
         default_storage.save(file_path, ContentFile(content))

@@ -5,7 +5,7 @@ import { useAPIKeys, useRevokeAPIKey } from "@/hooks/use-sentinel-data";
 import { dashboardApi } from "@/lib/dashboard-api";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/use-sentinel-data";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import type { APIKeyCreated } from "@/types/dashboard";
 
 const AVAILABLE_SCOPES = [
@@ -64,7 +64,7 @@ export default function APIKeysPage() {
             onClick={() => setNewKey(null)}
             className="mt-3 text-xs text-gray-500 hover:text-gray-400"
           >
-            I've saved the key — dismiss
+            I&apos;ve saved the key — dismiss
           </button>
         </div>
       )}

@@ -14,8 +14,14 @@ class AlertRuleAdmin(admin.ModelAdmin):
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
     list_display = [
-        "created_at", "rule", "severity", "status",
-        "actor_type", "agent_name", "actor_email", "risk_score",
+        "created_at",
+        "rule",
+        "severity",
+        "status",
+        "actor_type",
+        "agent_name",
+        "actor_email",
+        "risk_score",
     ]
     list_filter = ["status", "severity", "actor_type"]
     search_fields = ["agent_name", "actor_email", "audit_event_id"]

@@ -28,7 +28,7 @@ from sentinel.audit.serializers import (
 )
 from sentinel.audit.services import AuditEventService
 from sentinel.auth_service.permissions import IsAnalystOrAbove, IsAuditorOrAbove
-from sentinel.core.exceptions.base import SentinelNotFoundError, SentinelValidationError
+from sentinel.core.exceptions.base import SentinelValidationError
 from sentinel.core.pagination.cursor import CursorPagination
 
 logger = structlog.get_logger(__name__)
@@ -157,11 +157,14 @@ class AuditEventVerifyView(APIView):
         )
 
         return Response(
-            AuditEventVerifySerializer({
-                "event_id": event.id,
-                "valid": is_valid,
-                "message": "Signature valid — record unmodified." if is_valid
-                           else "Signature INVALID — record may have been tampered with.",
-            }).data,
+            AuditEventVerifySerializer(
+                {
+                    "event_id": event.id,
+                    "valid": is_valid,
+                    "message": "Signature valid — record unmodified."
+                    if is_valid
+                    else "Signature INVALID — record may have been tampered with.",
+                }
+            ).data,
             status=status.HTTP_200_OK,
         )

@@ -47,9 +47,7 @@ class AuditEventFilterSerializer(serializers.Serializer):
         from_dt = attrs.get("from_dt")
         to_dt = attrs.get("to_dt")
         if from_dt and to_dt and from_dt > to_dt:
-            raise serializers.ValidationError(
-                {"to_dt": "to_dt must be after from_dt."}
-            )
+            raise serializers.ValidationError({"to_dt": "to_dt must be after from_dt."})
         return attrs
 
 

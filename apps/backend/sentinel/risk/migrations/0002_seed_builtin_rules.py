@@ -83,10 +83,16 @@ BUILTIN_RULES = [
             "conditions": [
                 {"field": "actor_role", "operator": "eq", "value": "ADMIN"},
                 {"field": "risk_score", "operator": "gte", "value": 30},
-                {"field": "event_type", "operator": "in", "value": [
-                    "ADMIN_ACTION", "USER_ROLE_CHANGED",
-                    "USER_DEACTIVATED", "PERMISSION_CHANGED",
-                ]},
+                {
+                    "field": "event_type",
+                    "operator": "in",
+                    "value": [
+                        "ADMIN_ACTION",
+                        "USER_ROLE_CHANGED",
+                        "USER_DEACTIVATED",
+                        "PERMISSION_CHANGED",
+                    ],
+                },
             ],
         },
         "notification_channels": ["email"],

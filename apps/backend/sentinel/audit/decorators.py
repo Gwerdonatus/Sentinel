@@ -56,10 +56,7 @@ def audit_action(
         def wrapper(view_instance: Any, request: Request, *args: Any, **kwargs: Any) -> Any:
             response: Response = view_method(view_instance, request, *args, **kwargs)
 
-            should_audit = (
-                response.status_code < 400
-                or audit_on_failure
-            )
+            should_audit = response.status_code < 400 or audit_on_failure
 
             if should_audit:
                 try:
@@ -74,18 +71,27 @@ def audit_action(
                     if get_resource_id is not None:
                         try:
                             resource_id = get_resource_id(request, response)
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.warning(
+                                "audit_resource_id_extraction_failed",
+                                event_type=event_type,
+                                error=str(exc),
+                            )
 
                     metadata: dict[str, object] = {}
                     if get_metadata is not None:
                         try:
                             metadata = get_metadata(request, response)
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.warning(
+                                "audit_metadata_extraction_failed",
+                                event_type=event_type,
+                                error=str(exc),
+                            )
 
                     if async_audit:
                         from sentinel.audit.tasks import record_audit_event_task
+
                         record_audit_event_task.delay(
                             event_type=event_type,
                             actor_id=actor_id,
@@ -99,6 +105,7 @@ def audit_action(
                         )
                     else:
                         from sentinel.audit.services import AuditEventService
+
                         AuditEventService().record(
                             event_type=event_type,
                             actor_id=actor_id,

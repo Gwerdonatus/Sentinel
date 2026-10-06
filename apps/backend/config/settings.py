@@ -10,7 +10,6 @@ See docs/coding-standards.md for the reasoning behind this pattern.
 
 from __future__ import annotations
 
-import logging
 import sys
 from pathlib import Path
 
@@ -81,6 +80,10 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + SENTINEL_APPS
 # Must be set before the first migration. Changing this after migrations exist
 # requires a painful database rebuild. See ADR-002 and auth_service/models.py.
 AUTH_USER_MODEL = "sentinel_auth.SentinelUser"
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 # =============================================================================
 # Middleware
@@ -157,12 +160,24 @@ CACHES = {
     }
 }
 
+if ENVIRONMENT == "test":
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "sentinel-tests",
+        }
+    }
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 # =============================================================================
 # Password Validation
 # =============================================================================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 12},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -208,7 +223,7 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # Only enforce HTTPS in production
-if not DEBUG:
+if not DEBUG and ENVIRONMENT != "test":
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -220,6 +235,7 @@ if not DEBUG:
 # Django REST Framework
 # =============================================================================
 REST_FRAMEWORK = {
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "sentinel.api_keys.authentication.APIKeyAuthentication",
@@ -303,14 +319,24 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Disable prefetch for fair task distribution
 
+if ENVIRONMENT == "test":
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
 # =============================================================================
 # Kafka (Phase 5)
 # =============================================================================
 KAFKA_BOOTSTRAP_SERVERS: str = config("KAFKA_BOOTSTRAP_SERVERS", default="kafka:9092")
 KAFKA_ENABLED: bool = config("KAFKA_ENABLED", default=False, cast=bool)
 # Individual topic names (used when tenant_id is not available)
-KAFKA_TOPIC_AUDIT_EVENTS: str = config("KAFKA_TOPIC_AUDIT_EVENTS", default="sentinel.default.audit.events")
-KAFKA_TOPIC_RISK_SCORES: str = config("KAFKA_TOPIC_RISK_SCORES", default="sentinel.default.risk.scores")
+KAFKA_TOPIC_AUDIT_EVENTS: str = config(
+    "KAFKA_TOPIC_AUDIT_EVENTS", default="sentinel.default.audit.events"
+)
+KAFKA_TOPIC_RISK_SCORES: str = config(
+    "KAFKA_TOPIC_RISK_SCORES", default="sentinel.default.risk.scores"
+)
 KAFKA_TOPIC_ALERTS: str = config("KAFKA_TOPIC_ALERTS", default="sentinel.default.alerts")
 
 # =============================================================================

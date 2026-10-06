@@ -29,9 +29,7 @@ class IsAdmin(BasePermission):
 
     def has_permission(self, request: Request, view: APIView) -> bool:
         return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == Role.ADMIN  # type: ignore[union-attr]
+            request.user and request.user.is_authenticated and request.user.role == Role.ADMIN  # type: ignore[union-attr]
         )
 
 
@@ -44,9 +42,7 @@ class IsAuditorOrAbove(BasePermission):
 
     def has_permission(self, request: Request, view: APIView) -> bool:
         return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.role in self._allowed  # type: ignore[union-attr]
+            request.user and request.user.is_authenticated and request.user.role in self._allowed  # type: ignore[union-attr]
         )
 
 
@@ -59,9 +55,7 @@ class IsAnalystOrAbove(BasePermission):
 
     def has_permission(self, request: Request, view: APIView) -> bool:
         return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.role in self._allowed  # type: ignore[union-attr]
+            request.user and request.user.is_authenticated and request.user.role in self._allowed  # type: ignore[union-attr]
         )
 
 

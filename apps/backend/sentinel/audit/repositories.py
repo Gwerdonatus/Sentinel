@@ -61,6 +61,7 @@ class AuditEventRepository:
 
     def get_by_id(self, event_id: uuid.UUID) -> AuditEvent:
         from sentinel.core.exceptions.base import SentinelNotFoundError
+
         try:
             return AuditEvent.objects.get(id=event_id)
         except AuditEvent.DoesNotExist:

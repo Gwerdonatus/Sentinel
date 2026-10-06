@@ -19,10 +19,10 @@ from unittest.mock import patch
 import pytest
 from rest_framework.test import APIClient
 
-
 # =============================================================================
 # API Client Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def api_client() -> APIClient:
@@ -68,6 +68,7 @@ def admin_api_client(api_client: APIClient, db: object) -> APIClient:
 # Database Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def db_no_migrations(db: object) -> object:
     """
@@ -81,6 +82,7 @@ def db_no_migrations(db: object) -> object:
 # =============================================================================
 # Mock Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_cache() -> Generator[object, None, None]:
@@ -100,6 +102,7 @@ def mock_celery_task() -> Generator[object, None, None]:
 # URL Helpers
 # =============================================================================
 
+
 @pytest.fixture
 def api_v1_url() -> str:
     """Base URL for API v1 endpoints."""
@@ -109,6 +112,7 @@ def api_v1_url() -> str:
 # =============================================================================
 # Marker Configuration
 # =============================================================================
+
 
 def pytest_configure(config: object) -> None:
     """Register custom pytest markers to prevent warnings."""

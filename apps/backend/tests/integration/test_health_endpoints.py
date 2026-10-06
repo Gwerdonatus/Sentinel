@@ -46,8 +46,10 @@ class TestLivenessEndpoint:
         Liveness is about whether the process is running,
         not whether dependencies are available.
         """
-        with patch("django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection",
-                   side_effect=Exception("DB down")):
+        with patch(
+            "django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection",
+            side_effect=Exception("DB down"),
+        ):
             response = client.get("/health/live/")
             assert response.status_code == 200
 
@@ -57,9 +59,12 @@ class TestReadinessEndpoint:
     """GET /health/ready/"""
 
     def test_returns_200_when_all_healthy(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
 
@@ -67,9 +72,12 @@ class TestReadinessEndpoint:
             assert response.status_code == 200
 
     def test_returns_503_when_database_unhealthy(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult(
                 "database", CheckStatus.ERROR, 5000.0, "Connection refused"
             )
@@ -79,9 +87,12 @@ class TestReadinessEndpoint:
             assert response.status_code == 503
 
     def test_returns_503_when_redis_unhealthy(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult(
                 "redis", CheckStatus.ERROR, 5000.0, "Connection refused"
@@ -91,9 +102,12 @@ class TestReadinessEndpoint:
             assert response.status_code == 503
 
     def test_response_includes_checks_dict(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
 
@@ -104,9 +118,12 @@ class TestReadinessEndpoint:
             assert "redis" in data["checks"]
 
     def test_ready_status_string_when_healthy(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
 
@@ -115,12 +132,13 @@ class TestReadinessEndpoint:
             assert data["status"] == "ready"
 
     def test_not_ready_status_string_when_unhealthy(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
-            mock_db.return_value = CheckResult(
-                "database", CheckStatus.ERROR, 100.0, "timeout"
-            )
+
+            mock_db.return_value = CheckResult("database", CheckStatus.ERROR, 100.0, "timeout")
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
 
             response = client.get("/health/ready/")
@@ -133,10 +151,13 @@ class TestHealthSummaryEndpoint:
     """GET /health/"""
 
     def test_returns_200_when_all_healthy(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis, \
-             patch("sentinel.core.health.checks.check_celery") as mock_celery:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+            patch("sentinel.core.health.checks.check_celery") as mock_celery,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
             mock_celery.return_value = CheckResult(
@@ -147,10 +168,13 @@ class TestHealthSummaryEndpoint:
             assert response.status_code == 200
 
     def test_response_includes_version(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis, \
-             patch("sentinel.core.health.checks.check_celery") as mock_celery:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+            patch("sentinel.core.health.checks.check_celery") as mock_celery,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
             mock_celery.return_value = CheckResult("celery", CheckStatus.OK, 50.0)
@@ -162,10 +186,13 @@ class TestHealthSummaryEndpoint:
             assert data["service"] == "sentinel"
 
     def test_response_includes_total_ms(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis, \
-             patch("sentinel.core.health.checks.check_celery") as mock_celery:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+            patch("sentinel.core.health.checks.check_celery") as mock_celery,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
             mock_celery.return_value = CheckResult("celery", CheckStatus.OK, 50.0)
@@ -176,13 +203,14 @@ class TestHealthSummaryEndpoint:
             assert isinstance(data["total_ms"], float)
 
     def test_returns_503_when_any_check_fails(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis, \
-             patch("sentinel.core.health.checks.check_celery") as mock_celery:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+            patch("sentinel.core.health.checks.check_celery") as mock_celery,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
-            mock_db.return_value = CheckResult(
-                "database", CheckStatus.ERROR, 5000.0, "Timeout"
-            )
+
+            mock_db.return_value = CheckResult("database", CheckStatus.ERROR, 5000.0, "Timeout")
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
             mock_celery.return_value = CheckResult("celery", CheckStatus.OK, 50.0)
 
@@ -190,10 +218,13 @@ class TestHealthSummaryEndpoint:
             assert response.status_code == 503
 
     def test_healthy_status_string(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis, \
-             patch("sentinel.core.health.checks.check_celery") as mock_celery:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+            patch("sentinel.core.health.checks.check_celery") as mock_celery,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
+
             mock_db.return_value = CheckResult("database", CheckStatus.OK, 5.0)
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
             mock_celery.return_value = CheckResult("celery", CheckStatus.OK, 50.0)
@@ -203,13 +234,14 @@ class TestHealthSummaryEndpoint:
             assert data["status"] == "healthy"
 
     def test_degraded_status_string_on_failure(self, client: Client) -> None:
-        with patch("sentinel.core.health.checks.check_database") as mock_db, \
-             patch("sentinel.core.health.checks.check_redis") as mock_redis, \
-             patch("sentinel.core.health.checks.check_celery") as mock_celery:
+        with (
+            patch("sentinel.core.health.checks.check_database") as mock_db,
+            patch("sentinel.core.health.checks.check_redis") as mock_redis,
+            patch("sentinel.core.health.checks.check_celery") as mock_celery,
+        ):
             from sentinel.core.health.checks import CheckResult, CheckStatus
-            mock_db.return_value = CheckResult(
-                "database", CheckStatus.ERROR, 5000.0, "timeout"
-            )
+
+            mock_db.return_value = CheckResult("database", CheckStatus.ERROR, 5000.0, "timeout")
             mock_redis.return_value = CheckResult("redis", CheckStatus.OK, 2.0)
             mock_celery.return_value = CheckResult("celery", CheckStatus.OK, 50.0)
 

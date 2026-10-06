@@ -131,6 +131,7 @@ class AuditEventService:
         Returns True if unmodified, False if tampered.
         """
         from sentinel.audit.signing import verify_event_signature
+
         return verify_event_signature(
             event_id=event.id,
             event_type=event.event_type,

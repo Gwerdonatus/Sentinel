@@ -13,11 +13,10 @@ from datetime import timedelta
 import structlog
 from django.utils import timezone
 
-from sentinel.api_keys.models import APIKey, ActorType
+from sentinel.api_keys.models import ActorType, APIKey
 from sentinel.audit.tasks import record_audit_event_task
 from sentinel.core.exceptions.base import (
     SentinelNotFoundError,
-    SentinelPermissionError,
     SentinelValidationError,
 )
 
@@ -51,9 +50,7 @@ class APIKeyService:
         self._validate_scopes(scopes)
 
         if actor_type == ActorType.AI_AGENT and not agent_name:
-            raise SentinelValidationError(
-                "agent_name is required when actor_type is AI_AGENT."
-            )
+            raise SentinelValidationError("agent_name is required when actor_type is AI_AGENT.")
 
         full_key, key_prefix, key_hash = APIKey.generate_key(environment)
 

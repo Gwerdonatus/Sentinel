@@ -1,8 +1,8 @@
 """Sentinel API v1 URL Configuration."""
 
-from django.urls import include, path
+from django.urls import include, path, re_path
 
-from sentinel.api.v1.views import APIRootView, PingView
+from sentinel.api.v1.views import APINotFoundView, APIRootView, PingView
 
 urlpatterns = [
     path("", APIRootView.as_view(), name="api-v1-root"),
@@ -16,3 +16,5 @@ urlpatterns = [
     # Phase 4
     path("compliance/", include("sentinel.compliance.urls")),
 ]
+
+urlpatterns += [re_path(r"^.*$", APINotFoundView.as_view(), name="api-not-found")]

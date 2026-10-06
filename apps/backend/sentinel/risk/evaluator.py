@@ -120,7 +120,7 @@ def _get_field_value(
         return risk_level
 
     if field.startswith("metadata."):
-        key = field[len("metadata."):]
+        key = field[len("metadata.") :]
         return (event.metadata or {}).get(key)
 
     return getattr(event, field, None)
@@ -130,21 +130,21 @@ def _apply_operator(operator: str, actual: Any, expected: Any, field: str) -> bo
     """Apply a comparison operator between actual and expected values."""
     try:
         if operator == "eq":
-            return actual == expected
+            return bool(actual == expected)
         if operator == "neq":
-            return actual != expected
+            return bool(actual != expected)
         if operator == "gt":
-            return actual is not None and actual > expected
+            return bool(actual is not None and actual > expected)
         if operator == "gte":
-            return actual is not None and actual >= expected
+            return bool(actual is not None and actual >= expected)
         if operator == "lt":
-            return actual is not None and actual < expected
+            return bool(actual is not None and actual < expected)
         if operator == "lte":
-            return actual is not None and actual <= expected
+            return bool(actual is not None and actual <= expected)
         if operator == "in":
-            return actual in (expected or [])
+            return bool(actual in (expected or []))
         if operator == "not_in":
-            return actual not in (expected or [])
+            return bool(actual not in (expected or []))
         if operator == "contains":
             if isinstance(actual, str):
                 return str(expected) in actual

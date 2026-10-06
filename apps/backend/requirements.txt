@@ -35,10 +35,13 @@ argon2-cffi==23.1.*
 
 # --- Observability ---
 opentelemetry-sdk==1.27.*
-opentelemetry-instrumentation-django==0.48.*
-opentelemetry-instrumentation-redis==0.48.*
-opentelemetry-instrumentation-psycopg==0.48.*
-opentelemetry-instrumentation-celery==0.48.*
+# OpenTelemetry instrumentation releases use beta versions. PEP 440 wildcard
+# pins such as `0.48.*` do not match `0.48b0`, so installs failed before tests
+# could start. Pin the compatible beta release explicitly.
+opentelemetry-instrumentation-django==0.48b0
+opentelemetry-instrumentation-redis==0.48b0
+opentelemetry-instrumentation-psycopg==0.48b0
+opentelemetry-instrumentation-celery==0.48b0
 opentelemetry-exporter-otlp-proto-grpc==1.27.*
 django-prometheus==2.3.*
 structlog==24.4.*

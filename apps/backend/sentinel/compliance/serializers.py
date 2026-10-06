@@ -20,9 +20,7 @@ class ComplianceReportRequestSerializer(serializers.Serializer):
 
         span_days = (attrs["to_dt"] - attrs["from_dt"]).days
         if span_days > 366:
-            raise serializers.ValidationError(
-                {"to_dt": "Report period cannot exceed 366 days."}
-            )
+            raise serializers.ValidationError({"to_dt": "Report period cannot exceed 366 days."})
         return attrs
 
 
@@ -32,10 +30,20 @@ class ComplianceReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComplianceReport
         fields = [
-            "id", "report_type", "report_format", "status",
-            "from_dt", "to_dt", "filters", "summary",
-            "file_size_bytes", "error_message",
-            "requested_by_email", "generated_at", "expires_at", "created_at",
+            "id",
+            "report_type",
+            "report_format",
+            "status",
+            "from_dt",
+            "to_dt",
+            "filters",
+            "summary",
+            "file_size_bytes",
+            "error_message",
+            "requested_by_email",
+            "generated_at",
+            "expires_at",
+            "created_at",
         ]
         read_only_fields = fields
 

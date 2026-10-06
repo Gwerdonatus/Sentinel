@@ -34,8 +34,6 @@ KAFKA ISOLATION:
 
 from __future__ import annotations
 
-import uuid
-
 from django.db import models
 
 from sentinel.core.models.base import TimestampedModel

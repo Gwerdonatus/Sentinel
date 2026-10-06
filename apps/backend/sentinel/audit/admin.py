@@ -6,8 +6,13 @@ from sentinel.audit.models import AuditEvent
 @admin.register(AuditEvent)
 class AuditEventAdmin(admin.ModelAdmin):
     list_display = [
-        "created_at", "event_type", "actor_email",
-        "actor_role", "resource_type", "resource_id", "actor_ip",
+        "created_at",
+        "event_type",
+        "actor_email",
+        "actor_role",
+        "resource_type",
+        "resource_id",
+        "actor_ip",
     ]
     list_filter = ["event_type", "resource_type", "actor_role"]
     search_fields = ["actor_email", "resource_id", "request_id"]

@@ -49,10 +49,11 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class SignalResult:
     """Result of a single risk signal evaluation."""
+
     signal_name: str
-    score: int          # 0-100
-    fired: bool         # True if this signal contributed meaningfully
-    reason: str = ""    # Human-readable explanation if fired
+    score: int  # 0-100
+    fired: bool  # True if this signal contributed meaningfully
+    reason: str = ""  # Human-readable explanation if fired
 
 
 def score_impossible_travel(
@@ -121,8 +122,8 @@ def score_velocity_spike(
     Compares the current hour's event count to the actor's 7-day hourly baseline.
     A 5x spike scores 70. A 10x spike scores 90.
     """
+
     from sentinel.audit.models import AuditEvent as AuditEventModel
-    from django.db.models import Count
 
     if not event.actor_id:
         return SignalResult("velocity_spike", 0, False)
@@ -181,8 +182,11 @@ def score_off_hours_admin(
     Combined with other signals it contributes to a high composite score.
     """
     SENSITIVE_EVENT_TYPES = {
-        "ADMIN_ACTION", "USER_ROLE_CHANGED", "USER_DEACTIVATED",
-        "PERMISSION_CHANGED", "API_KEY_REVOKED",
+        "ADMIN_ACTION",
+        "USER_ROLE_CHANGED",
+        "USER_DEACTIVATED",
+        "PERMISSION_CHANGED",
+        "API_KEY_REVOKED",
     }
 
     if event.event_type not in SENSITIVE_EVENT_TYPES:

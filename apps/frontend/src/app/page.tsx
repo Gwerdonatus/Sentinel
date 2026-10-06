@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Sentinel — Security & Audit Intelligence Platform",
@@ -26,7 +25,7 @@ export default function HomePage() {
               API Docs
             </a>
             <a
-              href="https://github.com/your-org/sentinel"
+              href="https://github.com/Gwerdonatus/Sentinel"
               className="text-sm text-gray-400 transition-colors hover:text-white"
               target="_blank"
               rel="noopener noreferrer"
@@ -70,7 +69,7 @@ export default function HomePage() {
             Explore the API
           </a>
           <a
-            href="https://github.com/your-org/sentinel"
+            href="https://github.com/Gwerdonatus/Sentinel"
             className="rounded-md border border-gray-700 px-6 py-2.5 text-sm font-semibold text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
             target="_blank"
             rel="noopener noreferrer"

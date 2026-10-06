@@ -22,37 +22,5 @@ class Migration(migrations.Migration):
         ("sentinel_tenants", "0001_initial"),
     ]
 
-    operations = [
-        # AuditEvent
-        migrations.AddField(
-            model_name="auditevent",
-            name="tenant_id",
-            field=models.UUIDField(blank=True, db_index=True, null=True,
-                                   help_text="Owning tenant. Null = platform-level."),
-        ),
-        migrations.AddIndex(
-            model_name="auditevent",
-            index=models.Index(fields=["tenant_id", "created_at"], name="idx_audit_tenant_time"),
-        ),
-
-        # Alert
-        migrations.AddField(
-            model_name="alert",
-            name="tenant_id",
-            field=models.UUIDField(blank=True, db_index=True, null=True),
-        ),
-
-        # AlertRule
-        migrations.AddField(
-            model_name="alertrule",
-            name="tenant_id",
-            field=models.UUIDField(blank=True, db_index=True, null=True),
-        ),
-
-        # APIKey
-        migrations.AddField(
-            model_name="apikey",
-            name="tenant_id",
-            field=models.UUIDField(blank=True, db_index=True, null=True),
-        ),
-    ]
+    # Cross-app model changes belong to each model's own app migration.
+    operations = []

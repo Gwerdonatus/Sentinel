@@ -35,7 +35,6 @@ from sentinel.risk.serializers import (
     AlertListSerializer,
     AlertRuleSerializer,
     ResolveAlertSerializer,
-    RiskSummarySerializer,
 )
 
 logger = structlog.get_logger(__name__)
@@ -201,6 +200,7 @@ class RiskSummaryView(APIView):
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         from django.db.models import Count
+
         from sentinel.audit.models import AuditEvent
 
         now = timezone.now()
@@ -264,43 +264,42 @@ class ActorRiskProfileView(APIView):
 
         last_30d = timezone.now() - timezone.timedelta(days=30)
 
-        events = AuditEvent.objects.filter(
-            actor_id=parsed_id, created_at__gte=last_30d
-        ).order_by("-created_at")
+        events = AuditEvent.objects.filter(actor_id=parsed_id, created_at__gte=last_30d).order_by(
+            "-created_at"
+        )
 
         if not events.exists():
             raise SentinelNotFoundError(f"No events found for actor {actor_id}")
 
         latest = events.first()
         scores = list(
-            events.exclude(risk_score__isnull=True)
-            .values_list("risk_score", flat=True)[:100]
+            events.exclude(risk_score__isnull=True).values_list("risk_score", flat=True)[:100]
         )
         avg_score = sum(scores) / len(scores) if scores else 0
         max_score = max(scores) if scores else 0
 
-        open_alerts = Alert.objects.filter(
-            actor_id=parsed_id, status=AlertStatus.OPEN
-        ).count()
+        open_alerts = Alert.objects.filter(actor_id=parsed_id, status=AlertStatus.OPEN).count()
 
-        return Response({
-            "actor_id": actor_id,
-            "actor_type": getattr(latest, "actor_type", "HUMAN"),
-            "actor_email": latest.actor_email,
-            "agent_name": getattr(latest, "agent_name", ""),
-            "last_30_days": {
-                "total_events": events.count(),
-                "avg_risk_score": round(avg_score, 1),
-                "max_risk_score": max_score,
-                "open_alerts": open_alerts,
-            },
-            "recent_events": [
-                {
-                    "id": str(e.id),
-                    "event_type": e.event_type,
-                    "risk_score": e.risk_score,
-                    "created_at": e.created_at.isoformat(),
-                }
-                for e in events[:10]
-            ],
-        })
+        return Response(
+            {
+                "actor_id": actor_id,
+                "actor_type": getattr(latest, "actor_type", "HUMAN"),
+                "actor_email": latest.actor_email,
+                "agent_name": getattr(latest, "agent_name", ""),
+                "last_30_days": {
+                    "total_events": events.count(),
+                    "avg_risk_score": round(avg_score, 1),
+                    "max_risk_score": max_score,
+                    "open_alerts": open_alerts,
+                },
+                "recent_events": [
+                    {
+                        "id": str(e.id),
+                        "event_type": e.event_type,
+                        "risk_score": e.risk_score,
+                        "created_at": e.created_at.isoformat(),
+                    }
+                    for e in events[:10]
+                ],
+            }
+        )

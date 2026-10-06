@@ -26,11 +26,21 @@ from __future__ import annotations
 
 import json
 import uuid
+from urllib.parse import urlparse
 
 import structlog
 from celery import shared_task
 
 logger = structlog.get_logger(__name__)
+
+
+def _validated_https_url(value: object) -> str:
+    """Return an HTTPS notification URL or reject unsafe URL schemes."""
+    url = str(value)
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError("Notification URLs must use HTTPS.")
+    return url
 
 
 @shared_task(
@@ -103,7 +113,8 @@ def deliver_slack_task(
     }
 
     actor_label = (
-        f"AI Agent: {alert.agent_name}" if alert.agent_name
+        f"AI Agent: {alert.agent_name}"
+        if alert.agent_name
         else f"User: {alert.actor_email or alert.actor_type}"
     )
 
@@ -128,13 +139,14 @@ def deliver_slack_task(
 
     try:
         data = json.dumps(payload).encode()
-        req = urllib.request.Request(
-            str(webhook_url),
+        safe_webhook_url = _validated_https_url(webhook_url)
+        req = urllib.request.Request(  # noqa: S310 -- HTTPS is enforced above
+            safe_webhook_url,
             data=data,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             if resp.status == 200:
                 _record_delivery(alert, "slack", "success")
                 logger.info("slack_notification_sent", alert_id=alert_id)
@@ -173,7 +185,8 @@ def deliver_email_task(
         return
 
     actor_label = (
-        f"AI Agent '{alert.agent_name}'" if alert.agent_name
+        f"AI Agent '{alert.agent_name}'"
+        if alert.agent_name
         else f"User {alert.actor_email or alert.actor_type}"
     )
 
@@ -266,10 +279,11 @@ def deliver_webhook_task(
             "X-Sentinel-Signature": f"sha256={signature}",
             "X-Sentinel-Alert-ID": str(alert.id),
         }
-        req = urllib.request.Request(
-            str(url), data=body, headers=headers, method="POST"
+        safe_url = _validated_https_url(url)
+        req = urllib.request.Request(  # noqa: S310 -- HTTPS is enforced above
+            safe_url, data=body, headers=headers, method="POST"
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             _record_delivery(alert, "webhook", f"http_{resp.status}")
             if resp.status < 300:
                 logger.info("webhook_notification_sent", alert_id=alert_id, url=url)
@@ -284,6 +298,7 @@ def deliver_webhook_task(
 def _record_delivery(alert: object, channel: str, outcome: str) -> None:
     """Append a delivery record to the alert's notifications_sent field."""
     from django.utils import timezone
+
     from sentinel.risk.models import Alert
 
     if not isinstance(alert, Alert):
@@ -294,6 +309,4 @@ def _record_delivery(alert: object, channel: str, outcome: str) -> None:
         "outcome": outcome,
         "timestamp": timezone.now().isoformat(),
     }
-    Alert.objects.filter(id=alert.id).update(
-        notifications_sent=alert.notifications_sent + [record]
-    )
+    Alert.objects.filter(id=alert.id).update(notifications_sent=alert.notifications_sent + [record])

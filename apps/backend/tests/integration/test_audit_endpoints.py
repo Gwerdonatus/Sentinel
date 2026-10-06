@@ -134,30 +134,25 @@ class TestAuditEventListEndpoint:
         results = response.json()["results"]
         assert all(e["event_type"] == "USER_LOGIN" for e in results)
 
-    def test_filter_by_actor_id(
-        self, auditor_client: APIClient, sample_event: AuditEvent
-    ) -> None:
-        response = auditor_client.get(
-            self.URL, {"actor_id": str(sample_event.actor_id)}
-        )
+    def test_filter_by_actor_id(self, auditor_client: APIClient, sample_event: AuditEvent) -> None:
+        response = auditor_client.get(self.URL, {"actor_id": str(sample_event.actor_id)})
         assert response.status_code == status.HTTP_200_OK
         results = response.json()["results"]
         assert len(results) == 1
         assert results[0]["actor_email"] == "someuser@sentinel.io"
 
-    def test_invalid_event_type_filter_returns_400(
-        self, auditor_client: APIClient
-    ) -> None:
+    def test_invalid_event_type_filter_returns_400(self, auditor_client: APIClient) -> None:
         response = auditor_client.get(self.URL, {"event_type": "INVALID_TYPE"})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_from_dt_after_to_dt_returns_400(
-        self, auditor_client: APIClient
-    ) -> None:
-        response = auditor_client.get(self.URL, {
-            "from_dt": "2025-12-31T00:00:00Z",
-            "to_dt": "2025-01-01T00:00:00Z",
-        })
+    def test_from_dt_after_to_dt_returns_400(self, auditor_client: APIClient) -> None:
+        response = auditor_client.get(
+            self.URL,
+            {
+                "from_dt": "2025-12-31T00:00:00Z",
+                "to_dt": "2025-01-01T00:00:00Z",
+            },
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
@@ -177,9 +172,18 @@ class TestAuditEventDetailEndpoint:
         response = auditor_client.get(f"/api/v1/events/{sample_event.id}/")
         data = response.json()
         expected_fields = [
-            "id", "event_type", "actor_id", "actor_email", "actor_role",
-            "actor_ip", "resource_type", "resource_id", "metadata",
-            "request_id", "signature", "created_at",
+            "id",
+            "event_type",
+            "actor_id",
+            "actor_email",
+            "actor_role",
+            "actor_ip",
+            "resource_type",
+            "resource_id",
+            "metadata",
+            "request_id",
+            "signature",
+            "created_at",
         ]
         for field in expected_fields:
             assert field in data, f"Missing field: {field}"
@@ -190,15 +194,11 @@ class TestAuditEventDetailEndpoint:
         response = viewer_client.get(f"/api/v1/events/{sample_event.id}/")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_nonexistent_event_returns_404(
-        self, auditor_client: APIClient, db: object
-    ) -> None:
+    def test_nonexistent_event_returns_404(self, auditor_client: APIClient, db: object) -> None:
         response = auditor_client.get(f"/api/v1/events/{uuid.uuid4()}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_invalid_uuid_returns_422(
-        self, auditor_client: APIClient, db: object
-    ) -> None:
+    def test_invalid_uuid_returns_422(self, auditor_client: APIClient, db: object) -> None:
         response = auditor_client.get("/api/v1/events/not-a-uuid/")
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -225,66 +225,72 @@ class TestAuditEventIngestEndpoint:
 
     URL = "/api/v1/events/ingest/"
 
-    def test_analyst_can_ingest_event(
-        self, analyst_client: APIClient
-    ) -> None:
-        response = analyst_client.post(self.URL, {
-            "event_type": "TRANSFER_INITIATED",
-            "actor_email": "user@example.com",
-            "resource_type": "transfer",
-            "resource_id": "txn-001",
-            "metadata": {"amount": 5000, "currency": "NGN"},
-        })
+    def test_analyst_can_ingest_event(self, analyst_client: APIClient) -> None:
+        response = analyst_client.post(
+            self.URL,
+            {
+                "event_type": "TRANSFER_INITIATED",
+                "actor_email": "user@example.com",
+                "resource_type": "transfer",
+                "resource_id": "txn-001",
+                "metadata": {"amount": 5000, "currency": "NGN"},
+            },
+        )
         assert response.status_code == status.HTTP_201_CREATED
 
-    def test_ingest_response_includes_id_and_signature(
-        self, analyst_client: APIClient
-    ) -> None:
-        response = analyst_client.post(self.URL, {
-            "event_type": "USER_LOGIN",
-            "actor_email": "user@example.com",
-            "metadata": {},
-        })
+    def test_ingest_response_includes_id_and_signature(self, analyst_client: APIClient) -> None:
+        response = analyst_client.post(
+            self.URL,
+            {
+                "event_type": "USER_LOGIN",
+                "actor_email": "user@example.com",
+                "metadata": {},
+            },
+        )
         data = response.json()
         assert "id" in data
         assert "signature" in data
         assert len(data["signature"]) == 64
 
-    def test_viewer_cannot_ingest_event(
-        self, viewer_client: APIClient
-    ) -> None:
-        response = viewer_client.post(self.URL, {
-            "event_type": "USER_LOGIN",
-            "metadata": {},
-        })
+    def test_viewer_cannot_ingest_event(self, viewer_client: APIClient) -> None:
+        response = viewer_client.post(
+            self.URL,
+            {
+                "event_type": "USER_LOGIN",
+                "metadata": {},
+            },
+        )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_unknown_event_type_returns_422(
-        self, analyst_client: APIClient
-    ) -> None:
-        response = analyst_client.post(self.URL, {
-            "event_type": "COMPLETELY_MADE_UP_EVENT",
-            "metadata": {},
-        })
+    def test_unknown_event_type_returns_422(self, analyst_client: APIClient) -> None:
+        response = analyst_client.post(
+            self.URL,
+            {
+                "event_type": "COMPLETELY_MADE_UP_EVENT",
+                "metadata": {},
+            },
+        )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_ingested_event_is_persisted(
-        self, analyst_client: APIClient, db: object
-    ) -> None:
+    def test_ingested_event_is_persisted(self, analyst_client: APIClient, db: object) -> None:
         initial_count = AuditEvent.objects.count()
-        analyst_client.post(self.URL, {
-            "event_type": "ADMIN_ACTION",
-            "metadata": {"action": "config_change"},
-        })
+        analyst_client.post(
+            self.URL,
+            {
+                "event_type": "ADMIN_ACTION",
+                "metadata": {"action": "config_change"},
+            },
+        )
         assert AuditEvent.objects.count() == initial_count + 1
 
-    def test_unauthenticated_cannot_ingest(
-        self, client: APIClient, db: object
-    ) -> None:
-        response = client.post(self.URL, {
-            "event_type": "USER_LOGIN",
-            "metadata": {},
-        })
+    def test_unauthenticated_cannot_ingest(self, client: APIClient, db: object) -> None:
+        response = client.post(
+            self.URL,
+            {
+                "event_type": "USER_LOGIN",
+                "metadata": {},
+            },
+        )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -299,9 +305,7 @@ class TestAuditEventVerifyEndpoint:
             "sentinel.audit.services.AuditEventService.verify_signature",
             return_value=True,
         ):
-            response = auditor_client.get(
-                f"/api/v1/events/{sample_event.id}/verify/"
-            )
+            response = auditor_client.get(f"/api/v1/events/{sample_event.id}/verify/")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["valid"] is True
@@ -314,20 +318,14 @@ class TestAuditEventVerifyEndpoint:
             "sentinel.audit.services.AuditEventService.verify_signature",
             return_value=False,
         ):
-            response = auditor_client.get(
-                f"/api/v1/events/{sample_event.id}/verify/"
-            )
+            response = auditor_client.get(f"/api/v1/events/{sample_event.id}/verify/")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["valid"] is False
         assert "INVALID" in data["message"]
 
-    def test_viewer_cannot_verify(
-        self, viewer_client: APIClient, sample_event: AuditEvent
-    ) -> None:
-        response = viewer_client.get(
-            f"/api/v1/events/{sample_event.id}/verify/"
-        )
+    def test_viewer_cannot_verify(self, viewer_client: APIClient, sample_event: AuditEvent) -> None:
+        response = viewer_client.get(f"/api/v1/events/{sample_event.id}/verify/")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -337,12 +335,14 @@ class TestAuditImmutabilityAtRepository:
 
     def test_repository_update_raises(self) -> None:
         from sentinel.audit.repositories import AuditEventRepository
+
         repo = AuditEventRepository()
         with pytest.raises(NotImplementedError, match="immutable"):
             repo.update()
 
     def test_repository_delete_raises(self) -> None:
         from sentinel.audit.repositories import AuditEventRepository
+
         repo = AuditEventRepository()
         with pytest.raises(NotImplementedError, match="immutable"):
             repo.delete()

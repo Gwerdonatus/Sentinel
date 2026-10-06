@@ -13,7 +13,6 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from sentinel.audit.models import AuditEvent
 from sentinel.risk.models import Alert, AlertRule, AlertSeverity, AlertStatus
 
 User = get_user_model()
@@ -135,7 +134,7 @@ class TestAlertAcknowledgeEndpoint:
     def test_acknowledge_sets_acknowledged_by(
         self, analyst_client: APIClient, sample_alert: Alert, analyst_user: object
     ) -> None:
-        response = analyst_client.post(f"/api/v1/alerts/{sample_alert.id}/acknowledge/")
+        analyst_client.post(f"/api/v1/alerts/{sample_alert.id}/acknowledge/")
         sample_alert.refresh_from_db()
         assert sample_alert.acknowledged_by == analyst_user
 
@@ -174,32 +173,46 @@ class TestAlertResolveEndpoint:
 class TestAlertRuleEndpoints:
     URL = "/api/v1/alerts/rules/"
 
-    def test_analyst_can_list_rules(self, analyst_client: APIClient, sample_rule: AlertRule) -> None:
+    def test_analyst_can_list_rules(
+        self, analyst_client: APIClient, sample_rule: AlertRule
+    ) -> None:
         response = analyst_client.get(self.URL)
         assert response.status_code == status.HTTP_200_OK
 
     def test_analyst_can_create_rule(self, analyst_client: APIClient) -> None:
-        response = analyst_client.post(self.URL, {
-            "name": "AI velocity check",
-            "condition": {"field": "risk_score", "operator": "gte", "value": 60},
-            "severity": "high",
-            "notification_channels": ["slack"],
-        }, format="json")
+        response = analyst_client.post(
+            self.URL,
+            {
+                "name": "AI velocity check",
+                "condition": {"field": "risk_score", "operator": "gte", "value": 60},
+                "severity": "high",
+                "notification_channels": ["slack"],
+            },
+            format="json",
+        )
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_viewer_cannot_create_rule(self, viewer_client: APIClient) -> None:
-        response = viewer_client.post(self.URL, {
-            "name": "Test",
-            "condition": {"field": "risk_score", "operator": "gte", "value": 50},
-        }, format="json")
+        response = viewer_client.post(
+            self.URL,
+            {
+                "name": "Test",
+                "condition": {"field": "risk_score", "operator": "gte", "value": 50},
+            },
+            format="json",
+        )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_invalid_notification_channel_rejected(self, analyst_client: APIClient) -> None:
-        response = analyst_client.post(self.URL, {
-            "name": "Bad channel rule",
-            "condition": {"field": "risk_score", "operator": "gte", "value": 50},
-            "notification_channels": ["carrier_pigeon"],
-        }, format="json")
+        response = analyst_client.post(
+            self.URL,
+            {
+                "name": "Bad channel rule",
+                "condition": {"field": "risk_score", "operator": "gte", "value": 50},
+                "notification_channels": ["carrier_pigeon"],
+            },
+            format="json",
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_admin_can_deactivate_rule(

@@ -24,19 +24,17 @@ const nextConfig: NextConfig = {
 
   // Proxy API calls to backend in development (avoids CORS)
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     return [
       {
         source: "/api/backend/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },
 
   // Strict mode for catching React issues early
   reactStrictMode: true,
-
-  // Disable telemetry
-  telemetry: false,
 };
 
 export default nextConfig;

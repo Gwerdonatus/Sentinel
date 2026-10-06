@@ -58,9 +58,7 @@ class Command(BaseCommand):
                 db_conn.ensure_connection()
                 elapsed = round(time.monotonic() - start, 1)
                 self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Database ready after {elapsed}s ({attempt} attempt(s))."
-                    )
+                    self.style.SUCCESS(f"Database ready after {elapsed}s ({attempt} attempt(s)).")
                 )
                 logger.info(
                     "database_ready",

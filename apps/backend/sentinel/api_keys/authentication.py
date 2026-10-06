@@ -40,7 +40,7 @@ class APIKeyAuthentication(BaseAuthentication):
         if not auth_header.startswith(f"{self.keyword} "):
             return None  # Not an API key request — try next authenticator
 
-        presented_key = auth_header[len(self.keyword) + 1:].strip()
+        presented_key = auth_header[len(self.keyword) + 1 :].strip()
 
         if not presented_key:
             return None

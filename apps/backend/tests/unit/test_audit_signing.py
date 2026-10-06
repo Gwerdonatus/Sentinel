@@ -10,8 +10,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-import pytest
-
 from sentinel.audit.signing import compute_event_signature, verify_event_signature
 
 # Fixed values for deterministic tests
@@ -137,7 +135,9 @@ class TestComputeEventSignature:
             secret_key=_SECRET,
         )
         sig_original = compute_event_signature(metadata={"action": "login"}, **base)
-        sig_modified = compute_event_signature(metadata={"action": "login", "tampered": True}, **base)
+        sig_modified = compute_event_signature(
+            metadata={"action": "login", "tampered": True}, **base
+        )
         assert sig_original != sig_modified
 
 

@@ -92,3 +92,16 @@ class PingView(APIView):
                 "request_id": getattr(request, "request_id", None),
             }
         )
+
+
+class APINotFoundView(APIView):
+    """Return a consistent JSON response for unknown API v1 routes."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        return Response(
+            {"error": {"code": "not_found", "message": "API endpoint not found."}},
+            status=404,
+        )

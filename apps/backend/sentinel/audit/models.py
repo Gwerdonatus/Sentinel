@@ -96,6 +96,12 @@ class AuditEvent(models.Model):
     See module docstring for the full immutability contract.
     """
 
+    tenant_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Owning tenant. Null = platform-level.",
+    )
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -108,7 +114,7 @@ class AuditEvent(models.Model):
         blank=True,
         db_index=True,
         help_text="UUID of the authenticated user who performed this action. "
-                  "Null for unauthenticated events (e.g. failed login attempts).",
+        "Null for unauthenticated events (e.g. failed login attempts).",
     )
     actor_type = models.CharField(
         max_length=20,
@@ -121,7 +127,7 @@ class AuditEvent(models.Model):
         blank=True,
         default="",
         help_text="Email snapshot at time of event. Denormalized for audit integrity — "
-                  "the user's email may change after the event.",
+        "the user's email may change after the event.",
     )
     actor_role = models.CharField(
         max_length=20,
@@ -140,14 +146,14 @@ class AuditEvent(models.Model):
         default="",
         db_index=True,
         help_text="Name of the AI agent or service. "
-                  "e.g. 'support-bot-v2', 'fraud-detector', 'gpt-4-reconciler'.",
+        "e.g. 'support-bot-v2', 'fraud-detector', 'gpt-4-reconciler'.",
     )
     risk_score = models.SmallIntegerField(
         null=True,
         blank=True,
         db_index=True,
         help_text="Composite risk score 0-100 computed by the risk engine. "
-                  "Null until risk engine processes this event.",
+        "Null until risk engine processes this event.",
     )
 
     # WHAT happened

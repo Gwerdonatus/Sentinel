@@ -62,8 +62,9 @@ class RiskLevel:
 @dataclass
 class RiskScore:
     """Result of the composite risk scoring pipeline."""
-    score: int                          # 0-100
-    level: str                          # low | medium | high | critical
+
+    score: int  # 0-100
+    level: str  # low | medium | high | critical
     signals: list[SignalResult] = field(default_factory=list)
     fired_signals: list[str] = field(default_factory=list)
     primary_signal: str = ""
@@ -88,7 +89,7 @@ _HUMAN_SIGNALS = [
 _AI_SIGNALS = [
     score_ai_data_volume,
     score_ai_new_resource_type,
-    score_velocity_spike,      # Also applies to AI — volume over time
+    score_velocity_spike,  # Also applies to AI — volume over time
 ]
 
 _SERVICE_SIGNALS = [

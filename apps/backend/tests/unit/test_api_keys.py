@@ -9,13 +9,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from django.test import override_settings
 
 from sentinel.api_keys.authentication import APIKeyAuthentication
-from sentinel.api_keys.models import APIKey, ActorType
+from sentinel.api_keys.models import ActorType, APIKey
 
 
-@override_settings(SECRET_KEY="test-secret-key-for-hmac-fifty-chars-minimum-x")
 class TestAPIKeyGeneration:
     def test_generate_key_returns_three_values(self) -> None:
         full_key, prefix, key_hash = APIKey.generate_key("live")
@@ -67,7 +65,6 @@ class TestAPIKeyGeneration:
 
 
 @pytest.mark.django_db
-@override_settings(SECRET_KEY="test-secret-key-for-hmac-fifty-chars-minimum-x")
 class TestAPIKeyVerification:
     def test_valid_key_returns_api_key_instance(self) -> None:
         full_key, prefix, key_hash = APIKey.generate_key("live")
@@ -126,6 +123,7 @@ class TestAPIKeyVerification:
 
     def test_expired_key_returns_none(self) -> None:
         from datetime import timedelta
+
         from django.utils import timezone
 
         full_key, prefix, key_hash = APIKey.generate_key("live")
@@ -158,6 +156,7 @@ class TestAPIKeyModel:
 
     def test_is_active_false_for_deleted_key(self) -> None:
         from django.utils import timezone
+
         key = APIKey(deleted_at=timezone.now(), expires_at=None)
         assert key.is_active is False
 

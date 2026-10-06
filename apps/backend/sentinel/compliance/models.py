@@ -22,8 +22,6 @@ AI ATTRIBUTION:
 
 from __future__ import annotations
 
-import uuid
-
 from django.conf import settings
 from django.db import models
 
@@ -54,8 +52,12 @@ class ComplianceReport(TimestampedModel):
     """A requested compliance evidence export."""
 
     report_type = models.CharField(max_length=20, choices=ReportType.choices, db_index=True)
-    report_format = models.CharField(max_length=10, choices=ReportFormat.choices, default=ReportFormat.PDF)
-    status = models.CharField(max_length=20, choices=ReportStatus.choices, default=ReportStatus.PENDING, db_index=True)
+    report_format = models.CharField(
+        max_length=10, choices=ReportFormat.choices, default=ReportFormat.PDF
+    )
+    status = models.CharField(
+        max_length=20, choices=ReportStatus.choices, default=ReportStatus.PENDING, db_index=True
+    )
 
     # Filter parameters used to generate this report
     from_dt = models.DateTimeField()

@@ -8,7 +8,7 @@ Uses Django's test request factory — no database required.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from django.http import HttpResponse
@@ -25,6 +25,7 @@ def factory() -> RequestFactory:
 @pytest.fixture
 def simple_response_middleware() -> RequestIDMiddleware:
     """Middleware wrapping a simple 200 OK response."""
+
     def get_response(request: object) -> HttpResponse:
         return HttpResponse("OK")
 
@@ -67,10 +68,9 @@ class TestRequestIDMiddleware:
         simple_response_middleware(request2)
         assert request1.request_id != request2.request_id  # type: ignore[attr-defined]
 
-    def test_binds_request_id_to_structlog_context(
-        self, factory: RequestFactory
-    ) -> None:
+    def test_binds_request_id_to_structlog_context(self, factory: RequestFactory) -> None:
         with patch("structlog.contextvars.bind_contextvars") as mock_bind:
+
             def get_response(request: object) -> HttpResponse:
                 return HttpResponse("OK")
 
@@ -83,10 +83,9 @@ class TestRequestIDMiddleware:
             bound_keys = {k for call in bind_calls for k in call.kwargs}
             assert "request_id" in bound_keys
 
-    def test_clears_structlog_context_after_response(
-        self, factory: RequestFactory
-    ) -> None:
+    def test_clears_structlog_context_after_response(self, factory: RequestFactory) -> None:
         with patch("structlog.contextvars.unbind_contextvars") as mock_unbind:
+
             def get_response(request: object) -> HttpResponse:
                 return HttpResponse("OK")
 
@@ -104,9 +103,7 @@ class TestRequestIDMiddleware:
         parsed = uuid.UUID(request.request_id, version=4)  # type: ignore[attr-defined]
         assert parsed.version == 4
 
-    def test_accepts_custom_header_name(
-        self, factory: RequestFactory
-    ) -> None:
+    def test_accepts_custom_header_name(self, factory: RequestFactory) -> None:
         custom_id = str(uuid.uuid4())
 
         def get_response(request: object) -> HttpResponse:
@@ -118,5 +115,5 @@ class TestRequestIDMiddleware:
             middleware.header_name = "X-Correlation-ID"
 
             request = factory.get("/api/v1/", HTTP_X_CORRELATION_ID=custom_id)
-            response = middleware(request)
+            middleware(request)
             assert request.request_id == custom_id  # type: ignore[attr-defined]

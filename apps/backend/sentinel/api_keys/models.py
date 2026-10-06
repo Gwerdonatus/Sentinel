@@ -39,7 +39,6 @@ SCOPES:
 from __future__ import annotations
 
 import secrets
-import uuid
 from typing import ClassVar
 
 from django.conf import settings
@@ -51,6 +50,7 @@ from sentinel.core.models.base import SoftDeletableModel
 
 class ActorType(models.TextChoices):
     """Who is this key for?"""
+
     HUMAN_API = "HUMAN_API", "Human Developer API Access"
     SERVICE = "SERVICE", "Backend Service"
     AI_AGENT = "AI_AGENT", "AI Agent"
@@ -68,6 +68,7 @@ class APIKey(SoftDeletableModel):
     The full key value is never stored. Only the prefix and hash are persisted.
     """
 
+    tenant_id = models.UUIDField(null=True, blank=True, db_index=True)
     name = models.CharField(
         max_length=128,
         help_text="Human-readable name. e.g. 'Production Support Bot', 'Fraud Detector v3'",

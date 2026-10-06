@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from sentinel.risk.models import Alert, AlertRule, AlertSeverity, AlertStatus
+from sentinel.risk.models import Alert, AlertRule
 
 
 class AlertListSerializer(serializers.ModelSerializer):
@@ -13,9 +13,16 @@ class AlertListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Alert
         fields = [
-            "id", "rule_name", "severity", "status",
-            "actor_type", "actor_email", "agent_name",
-            "risk_score", "risk_level", "created_at",
+            "id",
+            "rule_name",
+            "severity",
+            "status",
+            "actor_type",
+            "actor_email",
+            "agent_name",
+            "risk_score",
+            "risk_level",
+            "created_at",
         ]
         read_only_fields = fields
 
@@ -28,14 +35,26 @@ class AlertDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Alert
         fields = [
-            "id", "rule_id", "rule_name", "severity", "status",
+            "id",
+            "rule_id",
+            "rule_name",
+            "severity",
+            "status",
             "audit_event_id",
-            "actor_id", "actor_type", "actor_email", "agent_name",
-            "risk_score", "risk_level", "risk_explanation",
-            "acknowledged_by_email", "acknowledged_at",
-            "resolved_at", "resolution_note",
+            "actor_id",
+            "actor_type",
+            "actor_email",
+            "agent_name",
+            "risk_score",
+            "risk_level",
+            "risk_explanation",
+            "acknowledged_by_email",
+            "acknowledged_at",
+            "resolved_at",
+            "resolution_note",
             "notifications_sent",
-            "created_at", "updated_at",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields
 
@@ -49,16 +68,24 @@ class AlertRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertRule
         fields = [
-            "id", "name", "description", "is_active", "is_builtin",
-            "severity", "condition", "notification_channels",
-            "notification_config", "suppression_window_minutes",
-            "trigger_count", "created_at",
+            "id",
+            "name",
+            "description",
+            "is_active",
+            "is_builtin",
+            "severity",
+            "condition",
+            "notification_channels",
+            "notification_config",
+            "suppression_window_minutes",
+            "trigger_count",
+            "created_at",
         ]
         read_only_fields = ["id", "is_builtin", "trigger_count", "created_at"]
 
     def validate_condition(self, value: dict) -> dict:
-        from sentinel.risk.evaluator import ConditionEvaluationError, evaluate_condition
         from sentinel.audit.models import AuditEvent
+        from sentinel.risk.evaluator import ConditionEvaluationError, evaluate_condition
 
         # Test the condition against a dummy event to catch structural errors early
         dummy = AuditEvent()
@@ -72,8 +99,10 @@ class AlertRuleSerializer(serializers.ModelSerializer):
             evaluate_condition(value, dummy)
         except ConditionEvaluationError as e:
             raise serializers.ValidationError(f"Invalid condition: {e}") from e
-        except Exception:
-            pass  # Other errors are OK at this stage — field access on dummy object
+        except (AttributeError, TypeError):
+            # The dummy event intentionally omits fields that may be referenced
+            # by otherwise structurally valid rules.
+            pass  # noqa: S110
 
         return value
 
@@ -81,9 +110,7 @@ class AlertRuleSerializer(serializers.ModelSerializer):
         valid = {"email", "slack", "webhook", "pagerduty"}
         invalid = set(value) - valid
         if invalid:
-            raise serializers.ValidationError(
-                f"Invalid channels: {invalid}. Valid: {valid}"
-            )
+            raise serializers.ValidationError(f"Invalid channels: {invalid}. Valid: {valid}")
         return value
 
 
@@ -93,6 +120,7 @@ class ResolveAlertSerializer(serializers.Serializer):
 
 class RiskSummarySerializer(serializers.Serializer):
     """Used only for schema generation."""
+
     open_alerts = serializers.DictField()
     last_24h = serializers.DictField()
     top_risky_ai_agents = serializers.ListField()

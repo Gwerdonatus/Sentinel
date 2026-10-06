@@ -35,7 +35,6 @@ from __future__ import annotations
 import json
 import signal
 import sys
-from typing import TYPE_CHECKING
 
 import structlog
 
@@ -61,7 +60,7 @@ class SentinelKafkaConsumer:
         from django.conf import settings
 
         try:
-            from confluent_kafka import Consumer, KafkaException
+            from confluent_kafka import Consumer
         except ImportError:
             logger.error(
                 "kafka_consumer_start_failed",
@@ -69,15 +68,17 @@ class SentinelKafkaConsumer:
             )
             sys.exit(1)
 
-        self._consumer = Consumer({
-            "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
-            "group.id": self.group_id,
-            "client.id": f"sentinel-consumer-{settings.ENVIRONMENT}",
-            "auto.offset.reset": "earliest",
-            "enable.auto.commit": False,      # Manual commit after processing
-            "max.poll.interval.ms": 300_000,  # 5 minutes — long enough for slow risk scoring
-            "session.timeout.ms": 45_000,
-        })
+        self._consumer = Consumer(
+            {
+                "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
+                "group.id": self.group_id,
+                "client.id": f"sentinel-consumer-{settings.ENVIRONMENT}",
+                "auto.offset.reset": "earliest",
+                "enable.auto.commit": False,  # Manual commit after processing
+                "max.poll.interval.ms": 300_000,  # 5 minutes — long enough for slow risk scoring
+                "session.timeout.ms": 45_000,
+            }
+        )
 
         self._consumer.subscribe(self.topics)
         self._running = True
@@ -101,6 +102,7 @@ class SentinelKafkaConsumer:
 
                 if msg.error():
                     from confluent_kafka import KafkaError
+
                     if msg.error().code() == KafkaError._PARTITION_EOF:
                         continue  # Reached end of partition — not an error
                     logger.error("kafka_consumer_error", error=str(msg.error()))
@@ -141,12 +143,14 @@ class SentinelKafkaConsumer:
 
             # Trigger risk scoring (synchronous in the consumer — no additional queue)
             from sentinel.risk.services import RiskService
+
             risk_service = RiskService()
             risk_score = risk_service.process_event(event_id)
 
             if risk_score:
                 # Publish risk score back to Kafka for downstream consumers
                 from sentinel.kafka.producer import publish_risk_score
+
                 publish_risk_score(
                     event_id=event_id,
                     risk_score=risk_score.score,

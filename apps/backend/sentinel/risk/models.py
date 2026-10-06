@@ -35,8 +35,6 @@ BUILT-IN RULES (created by migration):
 
 from __future__ import annotations
 
-import uuid
-
 from django.conf import settings
 from django.db import models
 
@@ -70,6 +68,7 @@ class AlertRule(TimestampedModel):
     Rules are evaluated against every ingested audit event in near-real-time.
     """
 
+    tenant_id = models.UUIDField(null=True, blank=True, db_index=True)
     name = models.CharField(
         max_length=128,
         help_text="Human-readable rule name. e.g. 'Critical risk score — AI agent'",
@@ -146,6 +145,7 @@ class Alert(TimestampedModel):
     Every alert links back to the rule that fired it and the event that triggered it.
     """
 
+    tenant_id = models.UUIDField(null=True, blank=True, db_index=True)
     rule = models.ForeignKey(
         AlertRule,
         on_delete=models.PROTECT,

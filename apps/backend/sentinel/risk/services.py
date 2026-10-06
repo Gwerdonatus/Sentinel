@@ -14,8 +14,8 @@ It must be fast (< 500ms per event at P99) and must never crash the pipeline.
 
 from __future__ import annotations
 
-import uuid
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import structlog
 from django.db import transaction
@@ -23,6 +23,10 @@ from django.utils import timezone
 
 from sentinel.risk.engine import RiskEngine, RiskScore
 from sentinel.risk.evaluator import evaluate_rule
+
+if TYPE_CHECKING:
+    from sentinel.audit.models import AuditEvent
+    from sentinel.risk.models import AlertRule
 
 logger = structlog.get_logger(__name__)
 
@@ -64,7 +68,9 @@ class RiskService:
         return risk_score
 
     def _evaluate_and_alert(
-        self, event: "AuditEvent", risk_score: RiskScore  # noqa: F821
+        self,
+        event: "AuditEvent",
+        risk_score: RiskScore,  # noqa: F821
     ) -> None:
         """Evaluate active alert rules and create Alert records for matches."""
         from sentinel.risk.models import Alert, AlertRule
@@ -101,9 +107,7 @@ class RiskService:
                 )
 
                 # Increment rule trigger count
-                AlertRule.objects.filter(id=rule.id).update(
-                    trigger_count=rule.trigger_count + 1
-                )
+                AlertRule.objects.filter(id=rule.id).update(trigger_count=rule.trigger_count + 1)
 
             logger.info(
                 "alert_created",
@@ -118,11 +122,13 @@ class RiskService:
             # Dispatch notifications asynchronously
             if rule.notification_channels:
                 from sentinel.notifications.tasks import dispatch_alert_notifications_task
+
                 dispatch_alert_notifications_task.delay(str(alert.id))
 
     @staticmethod
     def _is_suppressed(
-        rule: "AlertRule", event: "AuditEvent"  # noqa: F821
+        rule: "AlertRule",
+        event: "AuditEvent",  # noqa: F821
     ) -> bool:
         """Check if a duplicate alert for this rule+actor exists within the suppression window."""
         from sentinel.risk.models import Alert, AlertStatus

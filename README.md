@@ -3,7 +3,7 @@
 > **The Trust Layer for AI-Powered Financial Systems**
 
 [![CI](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://github.com/Gwerdonatus/Sentinel)
+[![Coverage](https://img.shields.io/badge/coverage-69%25-brightgreen)](https://github.com/Gwerdonatus/Sentinel)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](https://python.org)
 [![Django 5.x](https://img.shields.io/badge/django-5.x-green)](https://djangoproject.com)
@@ -122,7 +122,7 @@ Sentinel does **not** process money. It is the trust layer between actors — hu
 ### Start Everything
 
 ```bash
-git clone https://github.com/your-org/sentinel.git
+git clone https://github.com/Gwerdonatus/Sentinel.git
 cd sentinel
 
 # Copy environment files

@@ -29,8 +29,8 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
 from django.utils import timezone
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from sentinel.auth_service.models import SentinelUser
 from sentinel.auth_service.repositories import UserRepository
@@ -67,9 +67,7 @@ class AuthService:
         Only ADMIN users can create non-VIEWER accounts.
         Self-registration always creates VIEWER accounts.
         """
-        if role != "VIEWER" and (
-            requesting_user is None or not requesting_user.is_admin
-        ):
+        if role != "VIEWER" and (requesting_user is None or not requesting_user.is_admin):
             raise SentinelPermissionError(
                 "Only administrators can create accounts with elevated roles."
             )
@@ -157,7 +155,9 @@ class AuthService:
             )
 
         # Blacklist the consumed token before issuing new ones
-        self._blacklist_jti(jti, ttl_seconds=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()))
+        self._blacklist_jti(
+            jti, ttl_seconds=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+        )
 
         user_id: str = str(token["user_id"])
         try:
@@ -203,7 +203,9 @@ class AuthService:
         user.set_password(new_password)
         user.password_changed_at = timezone.now()
         user.must_change_password = False
-        user.save(update_fields=["password", "password_changed_at", "must_change_password", "updated_at"])
+        user.save(
+            update_fields=["password", "password_changed_at", "must_change_password", "updated_at"]
+        )
 
         logger.info("password_changed", user_id=str(user.id), email=user.email)
 

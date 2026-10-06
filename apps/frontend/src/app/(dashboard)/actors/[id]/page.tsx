@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import { useActorRiskProfile, useAuditEvents } from "@/hooks/use-sentinel-data";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";

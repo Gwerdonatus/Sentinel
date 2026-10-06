@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from sentinel.api_keys.models import APIKey, ActorType, KeyEnvironment
+from sentinel.api_keys.models import ActorType, APIKey, KeyEnvironment
 
 
 class APIKeyCreateSerializer(serializers.Serializer):
@@ -33,12 +33,23 @@ class APIKeyResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
         fields = [
-            "id", "name", "actor_type", "environment",
+            "id",
+            "name",
+            "actor_type",
+            "environment",
             "key_prefix",  # Safe to expose — it's just a lookup prefix
-            "scopes", "agent_name", "agent_version", "agent_description",
-            "is_active", "is_expired",
-            "last_used_at", "last_used_ip", "total_uses",
-            "expires_at", "created_by_email", "created_at",
+            "scopes",
+            "agent_name",
+            "agent_version",
+            "agent_description",
+            "is_active",
+            "is_expired",
+            "last_used_at",
+            "last_used_ip",
+            "total_uses",
+            "expires_at",
+            "created_by_email",
+            "created_at",
         ]
         read_only_fields = fields
 
@@ -48,7 +59,10 @@ class APIKeyResponseSerializer(serializers.ModelSerializer):
 
 class APIKeyCreatedResponseSerializer(APIKeyResponseSerializer):
     """Extends response with the one-time key value."""
-    key = serializers.CharField(read_only=True, help_text="Full key — shown once, never retrievable.")
+
+    key = serializers.CharField(
+        read_only=True, help_text="Full key — shown once, never retrievable."
+    )
 
     class Meta(APIKeyResponseSerializer.Meta):
         fields = APIKeyResponseSerializer.Meta.fields + ["key"]  # type: ignore[operator]

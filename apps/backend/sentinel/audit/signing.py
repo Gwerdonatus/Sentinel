@@ -44,14 +44,16 @@ def compute_event_signature(
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
 
     # Construct the message to sign — pipe-delimited for unambiguous parsing
-    message = "|".join([
-        str(event_id),
-        event_type,
-        str(actor_id) if actor_id else "",
-        actor_email,
-        created_at.isoformat(),
-        payload_hash,
-    ])
+    message = "|".join(
+        [
+            str(event_id),
+            event_type,
+            str(actor_id) if actor_id else "",
+            actor_email,
+            created_at.isoformat(),
+            payload_hash,
+        ]
+    )
 
     return hmac.new(
         key=secret_key.encode(),

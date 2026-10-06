@@ -65,15 +65,12 @@ class TestAPIRootView:
         data = response.json()
         assert "features" in data
 
-    def test_phase_1_features_are_disabled(self, client: APIClient) -> None:
-        """Phase 1 only has foundation — all major features are False."""
+    def test_platform_features_are_enabled(self, client: APIClient) -> None:
+        """The API root accurately advertises the implemented platform features."""
         response = client.get("/api/v1/")
         data = response.json()
         features = data["features"]
-        assert features["authentication"] is False
-        assert features["audit_ledger"] is False
-        assert features["risk_scoring"] is False
-        assert features["alerting"] is False
+        assert all(features.values())
 
     def test_returns_timestamp(self, client: APIClient) -> None:
         response = client.get("/api/v1/")
@@ -90,6 +87,7 @@ class TestAPIRootView:
 
     def test_request_id_is_valid_uuid(self, client: APIClient) -> None:
         import uuid
+
         response = client.get("/api/v1/")
         request_id = response["X-Request-ID"]
         # Raises ValueError if not a valid UUID
@@ -97,6 +95,7 @@ class TestAPIRootView:
 
     def test_propagates_client_request_id(self, client: APIClient) -> None:
         import uuid
+
         my_request_id = str(uuid.uuid4())
         response = client.get("/api/v1/", HTTP_X_REQUEST_ID=my_request_id)
         assert response["X-Request-ID"] == my_request_id
@@ -131,6 +130,7 @@ class TestPingView:
 
     def test_returns_request_id_in_body(self, client: APIClient) -> None:
         import uuid
+
         my_id = str(uuid.uuid4())
         response = client.get("/api/v1/ping/", HTTP_X_REQUEST_ID=my_id)
         data = response.json()

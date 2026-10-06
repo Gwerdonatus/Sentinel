@@ -82,7 +82,7 @@ class TestAuthServiceRegister:
         service = AuthService(repository=mock_repo)
         admin = make_user(role=Role.ADMIN)
 
-        result = service.register(
+        service.register(
             email="auditor@sentinel.io",
             password="SecurePassword123!",
             role="AUDITOR",
@@ -115,6 +115,7 @@ class TestAuthServiceLogin:
     def test_wrong_password_raises_auth_error(self) -> None:
         mock_repo = MagicMock()
         from sentinel.core.exceptions.base import SentinelNotFoundError
+
         mock_repo.get_by_email.side_effect = SentinelNotFoundError()
         service = AuthService(repository=mock_repo)
 
@@ -130,8 +131,10 @@ class TestAuthServiceLogin:
         service = AuthService(repository=mock_repo)
         user = make_user()
 
-        with patch("sentinel.auth_service.services.authenticate", return_value=user), \
-             patch.object(service, "_issue_token_pair") as mock_issue:
+        with (
+            patch("sentinel.auth_service.services.authenticate", return_value=user),
+            patch.object(service, "_issue_token_pair") as mock_issue,
+        ):
             mock_issue.return_value = {
                 "access": "access.token",
                 "refresh": "refresh.token",

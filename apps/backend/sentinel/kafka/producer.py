@@ -34,13 +34,14 @@ CONFIGURATION:
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 import structlog
 
 if TYPE_CHECKING:
+    from confluent_kafka import Producer as KafkaProducer
+
     from sentinel.audit.models import AuditEvent
 
 logger = structlog.get_logger(__name__)
@@ -61,17 +62,19 @@ def get_producer() -> "KafkaProducer":  # type: ignore[name-defined]
         try:
             from confluent_kafka import Producer
 
-            _producer = Producer({
-                "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
-                "client.id": f"sentinel-backend-{settings.ENVIRONMENT}",
-                "acks": "all",                    # Wait for all replicas to ack
-                "retries": 5,
-                "retry.backoff.ms": 100,
-                "compression.type": "snappy",
-                "linger.ms": 5,                   # Batch messages for 5ms
-                "batch.size": 32768,               # 32KB batches
-                "enable.idempotence": True,        # Exactly-once delivery semantics
-            })
+            _producer = Producer(
+                {
+                    "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
+                    "client.id": f"sentinel-backend-{settings.ENVIRONMENT}",
+                    "acks": "all",  # Wait for all replicas to ack
+                    "retries": 5,
+                    "retry.backoff.ms": 100,
+                    "compression.type": "snappy",
+                    "linger.ms": 5,  # Batch messages for 5ms
+                    "batch.size": 32768,  # 32KB batches
+                    "enable.idempotence": True,  # Exactly-once delivery semantics
+                }
+            )
             logger.info("kafka_producer_initialized", servers=settings.KAFKA_BOOTSTRAP_SERVERS)
         except ImportError:
             logger.warning(
@@ -121,7 +124,9 @@ def publish_audit_event(event: "AuditEvent") -> None:
         )
 
 
-def publish_risk_score(event_id: str, risk_score: int, risk_level: str, tenant_id: str | None) -> None:
+def publish_risk_score(
+    event_id: str, risk_score: int, risk_level: str, tenant_id: str | None
+) -> None:
     """Publish a computed risk score to the risk scores topic."""
     try:
         producer = get_producer()
@@ -177,13 +182,13 @@ def publish_alert(alert_id: str, rule_name: str, severity: str, tenant_id: str |
 # Private helpers
 # =============================================================================
 
+
 def _get_topic_for_event(event: "AuditEvent") -> str:
     tenant_id = getattr(event, "tenant_id", None)
     return _get_topic(str(tenant_id) if tenant_id else None, "audit.events")
 
 
 def _get_topic(tenant_id: str | None, topic_type: str) -> str:
-    from django.conf import settings
     if tenant_id:
         return f"sentinel.{tenant_id}.{topic_type}"
     # Single-tenant or platform-level events use the default topic

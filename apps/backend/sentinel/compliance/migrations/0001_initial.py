@@ -17,21 +17,49 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="ComplianceReport",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created_at", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
-                ("report_type", models.CharField(
-                    choices=[("pci_dss","PCI-DSS Evidence"),("soc2","SOC 2 Evidence"),("custom","Custom Export")],
-                    db_index=True, max_length=20,
-                )),
-                ("report_format", models.CharField(
-                    choices=[("pdf","PDF"),("csv","CSV"),("json","JSON")],
-                    default="pdf", max_length=10,
-                )),
-                ("status", models.CharField(
-                    choices=[("pending","Pending"),("generating","Generating"),("ready","Ready"),("failed","Failed"),("expired","Expired")],
-                    db_index=True, default="pending", max_length=20,
-                )),
+                (
+                    "report_type",
+                    models.CharField(
+                        choices=[
+                            ("pci_dss", "PCI-DSS Evidence"),
+                            ("soc2", "SOC 2 Evidence"),
+                            ("custom", "Custom Export"),
+                        ],
+                        db_index=True,
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "report_format",
+                    models.CharField(
+                        choices=[("pdf", "PDF"), ("csv", "CSV"), ("json", "JSON")],
+                        default="pdf",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("generating", "Generating"),
+                            ("ready", "Ready"),
+                            ("failed", "Failed"),
+                            ("expired", "Expired"),
+                        ],
+                        db_index=True,
+                        default="pending",
+                        max_length=20,
+                    ),
+                ),
                 ("from_dt", models.DateTimeField()),
                 ("to_dt", models.DateTimeField()),
                 ("filters", models.JSONField(default=dict)),
@@ -41,13 +69,21 @@ class Migration(migrations.Migration):
                 ("error_message", models.TextField(blank=True, default="")),
                 ("generated_at", models.DateTimeField(blank=True, null=True)),
                 ("expires_at", models.DateTimeField(blank=True, null=True)),
-                ("requested_by", models.ForeignKey(
-                    blank=True, null=True,
-                    on_delete=django.db.models.deletion.SET_NULL,
-                    related_name="compliance_reports",
-                    to=settings.AUTH_USER_MODEL,
-                )),
+                (
+                    "requested_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="compliance_reports",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
-            options={"db_table": "compliance_reports", "ordering": ["-created_at"], "verbose_name": "Compliance Report"},
+            options={
+                "db_table": "compliance_reports",
+                "ordering": ["-created_at"],
+                "verbose_name": "Compliance Report",
+            },
         ),
     ]
