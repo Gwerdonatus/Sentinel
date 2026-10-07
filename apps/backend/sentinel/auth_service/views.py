@@ -93,6 +93,7 @@ class LoginView(APIView):
             email=serializer.validated_data["email"],
             password=serializer.validated_data["password"],
             ip_address=ip,
+            request=request._request,
         )
 
         return Response(

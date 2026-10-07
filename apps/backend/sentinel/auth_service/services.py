@@ -28,6 +28,7 @@ import structlog
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
+from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -94,6 +95,7 @@ class AuthService:
         email: str,
         password: str,
         ip_address: str = "",
+        request: HttpRequest | None = None,
     ) -> dict[str, object]:
         """
         Authenticate with email/password.
@@ -101,7 +103,7 @@ class AuthService:
         Raises SentinelAuthenticationError on any failure.
         """
         # authenticate() calls check_password() and runs django-axes checks
-        user = authenticate(email=email, password=password)
+        user = authenticate(request=request, email=email, password=password)
 
         if user is None:
             # Try to find user to increment failure counter
