@@ -1,7 +1,6 @@
 # =============================================================================
 # Sentinel Backend — Dockerfile
-# Multi-stage build. Network-resilient: runtime stage copies libs from builder
-# instead of running apt-get again (avoids failures on restricted networks).
+# Multi-stage, multi-architecture build for AMD64 and ARM64.
 # =============================================================================
 
 # ---- Stage 1: Builder -------------------------------------------------------
@@ -24,10 +23,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # ---- Stage 2: Runtime -------------------------------------------------------
 FROM python:3.12-slim AS runtime
 
-# Copy libpq from builder — no second apt-get needed
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libpq.so* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libssl.so* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libcrypto.so* /usr/lib/x86_64-linux-gnu/
+# Install the runtime PostgreSQL client library through Debian so the correct
+# architecture-specific path is selected for both AMD64 and ARM64 images.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -38,16 +38,16 @@ RUN groupadd --gid 1001 sentinel && \
 WORKDIR /app
 COPY --chown=sentinel:sentinel . /app/
 
-# collectstatic with DB_DEFAULT disabled — no DB connection at build time
-ENV DJANGO_SETTINGS_MODULE=config.settings
-ENV SECRET_KEY=build-time-dummy-key-not-used-at-runtime-sentinel-x
-ENV DATABASE_URL=postgres://x:x@localhost:5432/x
-ENV REDIS_URL=redis://localhost:6379/0
-ENV OTEL_ENABLED=False
-ENV CELERY_BROKER_URL=redis://localhost:6379/1
-ENV CELERY_RESULT_BACKEND=redis://localhost:6379/2
-
-RUN python -m django collectstatic --noinput --verbosity 0
+# Build-only settings are scoped to this command and are not persisted in the
+# final image configuration.
+RUN DJANGO_SETTINGS_MODULE=config.settings \
+    SECRET_KEY=build-time-dummy-key-not-used-at-runtime-sentinel-x \
+    DATABASE_URL=postgres://x:x@localhost:5432/x \
+    REDIS_URL=redis://localhost:6379/0 \
+    OTEL_ENABLED=False \
+    CELERY_BROKER_URL=redis://localhost:6379/1 \
+    CELERY_RESULT_BACKEND=redis://localhost:6379/2 \
+    python -m django collectstatic --noinput --verbosity 0
 
 USER sentinel
 
