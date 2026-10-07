@@ -237,7 +237,7 @@ The pipeline flow:
 push to main
     │
     ▼
-build job — multi-arch (amd64 + arm64), push to GHCR
+build job — multi-arch backend plus AMD64 frontend, push to GHCR
     │ outputs: backend-digest, frontend-digest
     ▼
 deploy-staging — apply kustomize overlay with pinned digest

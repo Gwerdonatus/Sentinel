@@ -7,10 +7,10 @@
 
 ## Normal Deployment
 
-Every merge to `main` triggers the CD pipeline automatically:
+Application or infrastructure changes on `main` trigger the CD pipeline automatically:
 
 1. Docker images built and pushed to GHCR with content-addressed digest
-2. Deployed to staging automatically
+2. Deployed to staging when `ENABLE_STAGING_DEPLOY=true` is configured
 3. Smoke tests run against staging
 4. Production deployment requires manual approval in GitHub Actions
 

@@ -15,6 +15,9 @@
 #   KUBECONFIG_PRODUCTION  — base64-encoded kubeconfig for production cluster
 #   SENTINEL_STAGING_URL   — https://api.staging.sentinel.io
 #   SENTINEL_PROD_URL      — https://api.sentinel.io
+#
+# Deployment is opt-in. Set the repository variable ENABLE_STAGING_DEPLOY=true
+# only after the staging cluster and its required secrets are configured.
 # =============================================================================
 
 name: CD
@@ -46,6 +49,7 @@ jobs:
   build:
     name: Build & Push Images
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       backend-digest: ${{ steps.build-backend.outputs.digest }}
       frontend-digest: ${{ steps.build-frontend.outputs.digest }}
@@ -107,7 +111,9 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          # Next.js dependency installation is not reliable under QEMU ARM64
+          # emulation. The current Kubernetes runtime is AMD64.
+          platforms: linux/amd64
           build-args: |
             NEXT_PUBLIC_API_URL=https://api.sentinel.io
             NEXT_PUBLIC_APP_ENV=production
@@ -118,6 +124,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: build
+    if: vars.ENABLE_STAGING_DEPLOY == 'true'
     runs-on: ubuntu-latest
     environment:
       name: staging
@@ -170,6 +177,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: [build, deploy-staging]
+    if: needs.deploy-staging.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: production
