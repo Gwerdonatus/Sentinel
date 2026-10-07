@@ -23,6 +23,7 @@
 name: CD
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -30,6 +31,7 @@ on:
       - "apps/frontend/**"
       - "infra/kubernetes/**"
       - "infra/docker/**"
+      - ".github/workflows/cd.yml"
 
 permissions:
   contents: read
