@@ -60,3 +60,4 @@ What else was evaluated?
 | [ADR-015](adr-015-to-017.md) | Row-Level Tenant Isolation | Accepted |
 | [ADR-016](adr-015-to-017.md) | Kafka After Postgres | Accepted |
 | [ADR-017](adr-015-to-017.md) | SDK Zero Django Dependency | Accepted |
+| [ADR-018](adr-018-transactional-outbox-and-event-provenance.md) | Transactional Outbox and Credential-Derived Identity | Accepted |

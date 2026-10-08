@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   // Standalone output for minimal Docker image (see Dockerfile.frontend)
   output: "standalone",
 
+  // Keep development output separate from production builds in Compose.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   // Security headers
   async headers() {
     return [

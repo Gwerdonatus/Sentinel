@@ -19,9 +19,11 @@ const AVAILABLE_SCOPES = [
 ];
 
 export default function APIKeysPage() {
-  const { data: keys, isLoading } = useAPIKeys();
+  const { data: keys, isLoading, error: loadError } = useAPIKeys();
   const revoke = useRevokeAPIKey();
   const [showCreate, setShowCreate] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
 
   return (
@@ -41,6 +43,11 @@ export default function APIKeysPage() {
         </button>
       </div>
 
+      {(loadError || revoke.isError) && (
+        <p role="alert" className="error-banner">
+          API key request failed. Please refresh or try again.
+        </p>
+      )}
       {/* One-time key display */}
       {newKey && (
         <div className="rounded-xl border border-green-800 bg-green-900/20 p-5">
@@ -52,14 +59,25 @@ export default function APIKeysPage() {
               {newKey}
             </code>
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(newKey);
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(newKey);
+                  setCopied(true);
+                  setCopyError(false);
+                } catch {
+                  setCopyError(true);
+                }
               }}
               className="shrink-0 rounded-lg border border-green-800 px-3 py-2 text-xs text-green-400 hover:bg-green-900/30"
             >
-              Copy
+              {copied ? "Copied" : "Copy"}
             </button>
           </div>
+          {copyError && (
+            <p role="alert" className="text-red-400">
+              Unable to copy. Select and copy the key manually.
+            </p>
+          )}
           <button
             onClick={() => setNewKey(null)}
             className="mt-3 text-xs text-gray-500 hover:text-gray-400"
@@ -74,6 +92,7 @@ export default function APIKeysPage() {
         <CreateKeyForm
           onCreated={(key) => {
             setNewKey(key);
+            setCopied(false);
             setShowCreate(false);
           }}
           onCancel={() => setShowCreate(false)}
@@ -109,8 +128,12 @@ export default function APIKeysPage() {
                 ))
               ) : keys?.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-600">
-                    No API keys yet. Create one to allow services and AI agents to authenticate.
+                  <td
+                    colSpan={8}
+                    className="px-4 py-10 text-center text-sm text-gray-600"
+                  >
+                    No API keys yet. Create one to allow services and AI agents
+                    to authenticate.
                   </td>
                 </tr>
               ) : (
@@ -119,13 +142,18 @@ export default function APIKeysPage() {
                     <td className="px-4 py-3">
                       <p className="font-medium text-white">{key.name}</p>
                       {key.agent_name && (
-                        <p className="text-xs text-gray-500">🤖 {key.agent_name}</p>
+                        <p className="text-xs text-gray-500">
+                          {key.agent_name}
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs text-gray-400">
-                        {key.actor_type === "AI_AGENT" ? "🤖 AI Agent" :
-                         key.actor_type === "SERVICE" ? "⚙️ Service" : "👤 Human API"}
+                        {key.actor_type === "AI_AGENT"
+                          ? "AI Agent"
+                          : key.actor_type === "SERVICE"
+                            ? "Service"
+                            : "Human API"}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">
@@ -134,12 +162,17 @@ export default function APIKeysPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {key.scopes.slice(0, 2).map((s) => (
-                          <span key={s} className="rounded bg-gray-800 px-1.5 py-0.5 font-mono text-xs text-gray-400">
+                          <span
+                            key={s}
+                            className="rounded bg-gray-800 px-1.5 py-0.5 font-mono text-xs text-gray-400"
+                          >
                             {s}
                           </span>
                         ))}
                         {key.scopes.length > 2 && (
-                          <span className="text-xs text-gray-600">+{key.scopes.length - 2}</span>
+                          <span className="text-xs text-gray-600">
+                            +{key.scopes.length - 2}
+                          </span>
                         )}
                       </div>
                     </td>
@@ -148,7 +181,9 @@ export default function APIKeysPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       {key.last_used_at
-                        ? formatDistanceToNow(new Date(key.last_used_at), { addSuffix: true })
+                        ? formatDistanceToNow(new Date(key.last_used_at), {
+                            addSuffix: true,
+                          })
                         : "Never"}
                     </td>
                     <td className="px-4 py-3">
@@ -166,10 +201,15 @@ export default function APIKeysPage() {
                       {key.is_active && (
                         <button
                           onClick={() => {
-                            if (confirm(`Revoke key "${key.name}"? This cannot be undone.`)) {
+                            if (
+                              confirm(
+                                `Revoke key "${key.name}"? This cannot be undone.`,
+                              )
+                            ) {
                               revoke.mutate(key.id);
                             }
                           }}
+                          disabled={revoke.isPending}
                           className="text-xs text-red-500 hover:text-red-400"
                         >
                           Revoke
@@ -200,13 +240,15 @@ function CreateKeyForm({
   const [agentName, setAgentName] = useState("");
   const [agentVersion, setAgentVersion] = useState("");
   const [agentDescription, setAgentDescription] = useState("");
-  const [selectedScopes, setSelectedScopes] = useState<string[]>(["events:write"]);
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([
+    "events:write",
+  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function toggleScope(scope: string) {
     setSelectedScopes((prev) =>
-      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
     );
   }
 
@@ -237,8 +279,14 @@ function CreateKeyForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">Key Name</label>
+          <label
+            htmlFor="key-name"
+            className="mb-1 block text-xs font-medium text-gray-400"
+          >
+            Key Name
+          </label>
           <input
+            id="key-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Fraud Detector Service"
@@ -246,15 +294,21 @@ function CreateKeyForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">Actor Type</label>
+          <label
+            htmlFor="actor-type"
+            className="mb-1 block text-xs font-medium text-gray-400"
+          >
+            Actor Type
+          </label>
           <select
+            id="actor-type"
             value={actorType}
             onChange={(e) => setActorType(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-sentinel-500 focus:outline-none"
           >
-            <option value="SERVICE">⚙️ Service</option>
-            <option value="AI_AGENT">🤖 AI Agent</option>
-            <option value="HUMAN_API">👤 Human API</option>
+            <option value="SERVICE">Service</option>
+            <option value="AI_AGENT">AI Agent</option>
+            <option value="HUMAN_API">Human API</option>
           </select>
         </div>
       </div>
@@ -262,10 +316,14 @@ function CreateKeyForm({
       {actorType === "AI_AGENT" && (
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">
+            <label
+              htmlFor="agent-name"
+              className="mb-1 block text-xs font-medium text-gray-400"
+            >
               Agent Name <span className="text-red-500">*</span>
             </label>
             <input
+              id="agent-name"
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
               placeholder="support-bot-v2"
@@ -273,10 +331,14 @@ function CreateKeyForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">
+            <label
+              htmlFor="agent-version"
+              className="mb-1 block text-xs font-medium text-gray-400"
+            >
               Model / Version
             </label>
             <input
+              id="agent-version"
               value={agentVersion}
               onChange={(e) => setAgentVersion(e.target.value)}
               placeholder="gpt-4-turbo-2024-04"
@@ -284,10 +346,14 @@ function CreateKeyForm({
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1 block text-xs font-medium text-gray-400">
+            <label
+              htmlFor="agent-description"
+              className="mb-1 block text-xs font-medium text-gray-400"
+            >
               Description
             </label>
             <input
+              id="agent-description"
               value={agentDescription}
               onChange={(e) => setAgentDescription(e.target.value)}
               placeholder="Handles tier-1 customer support queries"
@@ -298,10 +364,13 @@ function CreateKeyForm({
       )}
 
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-400">Scopes</label>
+        <label className="mb-2 block text-xs font-medium text-gray-400">
+          Scopes
+        </label>
         <div className="flex flex-wrap gap-2">
           {AVAILABLE_SCOPES.map((scope) => (
             <button
+              aria-pressed={selectedScopes.includes(scope)}
               key={scope}
               onClick={() => toggleScope(scope)}
               className={`rounded border px-2.5 py-1 font-mono text-xs transition-colors ${
@@ -331,7 +400,12 @@ function CreateKeyForm({
         </button>
         <button
           onClick={handleCreate}
-          disabled={isSubmitting || !name || selectedScopes.length === 0}
+          disabled={
+            isSubmitting ||
+            !name.trim() ||
+            selectedScopes.length === 0 ||
+            (actorType === "AI_AGENT" && !agentName.trim())
+          }
           className="rounded-lg bg-sentinel-600 px-4 py-2 text-sm font-medium text-white hover:bg-sentinel-500 disabled:opacity-40"
         >
           {isSubmitting ? "Creating…" : "Create Key"}

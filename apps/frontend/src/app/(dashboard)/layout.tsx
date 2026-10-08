@@ -1,97 +1,145 @@
 "use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import {
+  LayoutGrid,
+  Bell,
+  Layers,
+  ScanEye,
+  KeyRound,
+  FileCheck2,
+  LogOut,
+  Menu,
+  X,
+  ArrowUpRight,
+} from "lucide-react";
+import { Brand } from "@/components/brand";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Overview", icon: "⬛", exact: true },
-  { href: "/alerts", label: "Alerts", icon: "🔔", exact: false },
-  { href: "/events", label: "Audit Log", icon: "📋", exact: false },
-  { href: "/ai-agents", label: "AI Agents", icon: "🤖", exact: false },
-  { href: "/api-keys", label: "API Keys", icon: "🔑", exact: false },
-  { href: "/compliance", label: "Compliance", icon: "📄", exact: false },
+const ITEMS = [
+  { href: "/dashboard", label: "Overview", icon: LayoutGrid },
+  { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/events", label: "Audit log", icon: Layers },
+  { href: "/ai-agents", label: "AI agents", icon: ScanEye },
+  { href: "/api-keys", label: "API keys", icon: KeyRound },
+  { href: "/compliance", label: "Compliance", icon: FileCheck2 },
 ];
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
+    if (!isLoading && !user) router.push("/login");
   }, [user, isLoading, router]);
-
-  if (isLoading) {
+  if (isLoading)
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-sentinel-500 border-t-transparent" />
+      <div className="loading-screen" role="status">
+        <span className="loading-spinner" />
+        Opening your workspace…
       </div>
     );
-  }
-
   if (!user) return null;
-
+  const title =
+    ITEMS.find((i) => pathname.startsWith(i.href))?.label ?? "Investigation";
   return (
-    <div className="flex h-full">
-      {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r border-gray-800 bg-gray-900/50">
-        {/* Brand */}
-        <div className="flex h-14 items-center gap-2.5 border-b border-gray-800 px-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-sentinel-600 text-xs">
-            🛡️
-          </div>
-          <span className="font-semibold text-white">Sentinel</span>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 space-y-0.5 p-2">
-          {NAV_ITEMS.map((item) => {
-            const isActive = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-sentinel-900/60 text-sentinel-300"
-                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                )}
-              >
-                <span className="text-base">{item.icon}</span>
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* User */}
-        <div className="border-t border-gray-800 p-3">
-          <div className="mb-2 rounded-md bg-gray-800/60 px-3 py-2">
-            <p className="truncate text-xs font-medium text-white">{user.full_name || user.email}</p>
-            <p className="text-xs text-gray-500">{user.role}</p>
-          </div>
+    <div className="workspace">
+      <aside
+        id="workspace-navigation"
+        className={cn("workspace-sidebar", menuOpen && "is-open")}
+      >
+        <div className="sidebar-brand">
+          <Brand />
           <button
-            onClick={logout}
-            className="w-full rounded-md px-3 py-1.5 text-left text-xs text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+            className="mobile-close"
+            aria-label="Close navigation"
+            onClick={() => setMenuOpen(false)}
           >
-            Sign out
+            <X size={20} />
           </button>
         </div>
+        <div className="workspace-label">
+          WORKSPACE<span>01</span>
+        </div>
+        <nav aria-label="Workspace navigation">
+          {ITEMS.map((i) => (
+            <Link
+              key={i.href}
+              href={i.href}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname.startsWith(i.href) ? "page" : undefined}
+              className={cn(
+                "sidebar-link",
+                pathname.startsWith(i.href) && "active",
+              )}
+            >
+              <i.icon size={18} strokeWidth={1.6} />
+              {i.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <Link href="/developers" className="sidebar-guide">
+            <span>
+              Build with Sentinel<small>Explore the developer guide</small>
+            </span>
+            <ArrowUpRight size={17} />
+          </Link>
+          <div className="user-profile">
+            <span className="avatar">
+              {(user.full_name || user.email).slice(0, 1).toUpperCase()}
+            </span>
+            <div>
+              <strong>{user.full_name || user.email.split("@")[0]}</strong>
+              <span>{user.role.toLowerCase()} · Workspace access</span>
+            </div>
+            <button onClick={logout} aria-label="Sign out" title="Sign out">
+              <LogOut size={17} />
+            </button>
+          </div>
+        </div>
       </aside>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      {menuOpen && (
+        <button
+          className="nav-scrim"
+          aria-label="Close navigation"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+      <div className="workspace-body">
+        <header className="workspace-toolbar">
+          <div>
+            <button
+              className="mobile-menu"
+              aria-label="Open navigation"
+              aria-expanded={menuOpen}
+              aria-controls="workspace-navigation"
+              onClick={() => setMenuOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <span className="breadcrumb">
+              Workspace <span>/</span> <strong>{title}</strong>
+            </span>
+          </div>
+          <div className="toolbar-links">
+            <Link href="/status">
+              <span className="status-dot" /> System status
+            </Link>
+            <span className="environment-label">Development</span>
+          </div>
+        </header>
+        <main className="workspace-content">{children}</main>
+        <footer className="workspace-footer">
+          <span>Sentinel 2 · Watchful by design</span>
+          <Link href="/developers">Documentation ↗</Link>
+        </footer>
+      </div>
     </div>
   );
 }

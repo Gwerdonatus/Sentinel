@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from sentinel.audit.models import AuditEvent, AuditEventType
+from sentinel.audit.models import ActorType, AuditEvent, AuditEventType
 
 
 class AuditEventSerializer(serializers.ModelSerializer):
@@ -14,16 +14,21 @@ class AuditEventSerializer(serializers.ModelSerializer):
         model = AuditEvent
         fields = [
             "id",
+            "tenant_id",
             "event_type",
             "actor_id",
+            "actor_type",
             "actor_email",
             "actor_role",
             "actor_ip",
+            "agent_name",
             "resource_type",
             "resource_id",
             "metadata",
             "request_id",
             "signature",
+            "signature_version",
+            "risk_score",
             "created_at",
         ]
         read_only_fields = fields
@@ -33,6 +38,8 @@ class AuditEventFilterSerializer(serializers.Serializer):
     """Query parameter validation for audit event list endpoint."""
 
     actor_id = serializers.UUIDField(required=False)
+    actor_type = serializers.ChoiceField(choices=ActorType.choices, required=False)
+    agent_name = serializers.CharField(max_length=128, required=False)
     event_type = serializers.ChoiceField(
         choices=AuditEventType.choices,
         required=False,

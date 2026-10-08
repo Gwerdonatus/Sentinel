@@ -62,16 +62,6 @@ def record_audit_event_task(
             request_id=request_id,
         )
 
-        # Phase 3+: Trigger risk scoring pipeline
-        from sentinel.risk.tasks import score_and_alert_task
-
-        score_and_alert_task.delay(str(event.id))
-
-        # Phase 5: Publish to Kafka for durable streaming and downstream consumers
-        from sentinel.kafka.producer import publish_audit_event
-
-        publish_audit_event(event)
-
         return str(event.id)
 
     except Exception as exc:
@@ -83,3 +73,57 @@ def record_audit_event_task(
             retry_count=self.request.retries,  # type: ignore[union-attr]
         )
         raise self.retry(exc=exc)  # type: ignore[union-attr]
+
+
+@shared_task(name="sentinel.audit.publish_outbox", bind=True, max_retries=5)
+def publish_pending_audit_events_task(self: object, batch_size: int = 100) -> dict[str, int]:
+    """Publish pending outbox rows with bounded exponential backoff."""
+    from datetime import timedelta
+
+    from django.db import transaction
+    from django.utils import timezone
+
+    from sentinel.audit.models import AuditOutbox
+    from sentinel.kafka.producer import publish_audit_event
+
+    published = 0
+    failed = 0
+    now = timezone.now()
+    pending_ids = list(
+        AuditOutbox.objects.filter(published_at__isnull=True, next_attempt_at__lte=now)
+        .order_by("created_at")
+        .values_list("id", flat=True)[:batch_size]
+    )
+
+    for outbox_id in pending_ids:
+        with transaction.atomic():
+            entry = (
+                AuditOutbox.objects.select_for_update()
+                .select_related("audit_event")
+                .get(id=outbox_id)
+            )
+            if entry.published_at is not None:
+                continue
+            try:
+                publish_audit_event(entry.audit_event)
+            except Exception as exc:
+                entry.attempts += 1
+                delay_seconds = min(300, 2 ** min(entry.attempts, 8))
+                entry.next_attempt_at = timezone.now() + timedelta(seconds=delay_seconds)
+                entry.last_error = str(exc)[:2000]
+                entry.save(update_fields=["attempts", "next_attempt_at", "last_error"])
+                failed += 1
+                logger.warning(
+                    "audit_outbox_publish_failed",
+                    outbox_id=str(entry.id),
+                    event_id=str(entry.audit_event_id),
+                    attempts=entry.attempts,
+                    error=str(exc),
+                )
+            else:
+                entry.published_at = timezone.now()
+                entry.last_error = ""
+                entry.save(update_fields=["published_at", "last_error"])
+                published += 1
+
+    return {"published": published, "failed": failed}

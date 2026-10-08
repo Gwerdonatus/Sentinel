@@ -1,9 +1,9 @@
 """
 Sentinel Celery Application.
 
-All async task processing runs through this Celery app.
-Phase 1: Redis as broker.
-Phase 2+: Kafka replaces Redis for event streaming tasks.
+Celery handles command-style background work: outbox publication,
+notifications, compliance reports, and scheduled maintenance. Kafka owns the
+ordered audit-event stream consumed by the risk engine.
 """
 
 from __future__ import annotations

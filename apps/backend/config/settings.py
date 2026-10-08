@@ -237,8 +237,8 @@ if not DEBUG and ENVIRONMENT != "test":
 REST_FRAMEWORK = {
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "sentinel.api_keys.authentication.APIKeyAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -309,6 +309,7 @@ SPECTACULAR_SETTINGS = {
 # =============================================================================
 CELERY_BROKER_URL: str = config("CELERY_BROKER_URL", default="redis://redis:6379/1")
 CELERY_RESULT_BACKEND: str = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/2")
+CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -318,6 +319,13 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Disable prefetch for fair task distribution
+CELERY_BEAT_SCHEDULE = {
+    "publish-audit-outbox": {
+        "task": "sentinel.audit.publish_outbox",
+        "schedule": 5.0,
+        "args": (100,),
+    },
+}
 
 if ENVIRONMENT == "test":
     CELERY_BROKER_URL = "memory://"

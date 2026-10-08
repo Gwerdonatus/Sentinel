@@ -36,6 +36,7 @@ from __future__ import annotations
 import uuid
 
 from django.db import models
+from django.utils import timezone
 
 
 class ActorType(models.TextChoices):
@@ -200,10 +201,14 @@ class AuditEvent(models.Model):
         default="",
         help_text="HMAC-SHA256 signature over key event fields. Used for tamper detection.",
     )
+    signature_version = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="Canonical signing format. Version 2 covers all security-relevant fields.",
+    )
 
     # WHEN it happened (partition key candidate)
     created_at = models.DateTimeField(
-        auto_now_add=True,
+        default=timezone.now,
         db_index=True,
         help_text="UTC timestamp when this event was recorded. Immutable.",
     )
@@ -216,6 +221,10 @@ class AuditEvent(models.Model):
             models.Index(fields=["event_type", "created_at"], name="idx_audit_type_time"),
             models.Index(fields=["resource_type", "resource_id"], name="idx_audit_resource"),
             models.Index(fields=["request_id"], name="idx_audit_request_id"),
+            models.Index(fields=["actor_type", "created_at"], name="idx_audit_actor_type_time"),
+            models.Index(fields=["agent_name", "created_at"], name="idx_audit_agent_name_time"),
+            models.Index(fields=["risk_score", "created_at"], name="idx_audit_risk_score_time"),
+            models.Index(fields=["tenant_id", "created_at"], name="idx_audit_tenant_time"),
         ]
         verbose_name = "Audit Event"
         verbose_name_plural = "Audit Events"
@@ -225,3 +234,33 @@ class AuditEvent(models.Model):
 
     def __repr__(self) -> str:
         return f"<AuditEvent id={self.id} type={self.event_type}>"
+
+
+class AuditOutbox(models.Model):
+    """Durable Kafka publication intent committed with its audit event."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    audit_event = models.OneToOneField(
+        AuditEvent,
+        on_delete=models.PROTECT,
+        related_name="outbox_entry",
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    published_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "audit_outbox"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(
+                fields=["published_at", "next_attempt_at"],
+                name="idx_outbox_pending",
+            )
+        ]
+
+    def __str__(self) -> str:
+        status = "published" if self.published_at else "pending"
+        return f"AuditOutbox({self.audit_event_id}, {status})"

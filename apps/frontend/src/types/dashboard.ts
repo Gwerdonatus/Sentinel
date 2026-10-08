@@ -46,23 +46,23 @@ export type ActorType = "HUMAN" | "SERVICE" | "AI_AGENT";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
 export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
-  low: "text-green-400",
-  medium: "text-yellow-400",
-  high: "text-orange-400",
-  critical: "text-red-500",
+  low: "risk-text-low",
+  medium: "risk-text-medium",
+  high: "risk-text-high",
+  critical: "risk-text-critical",
 };
 
 export const RISK_LEVEL_BG: Record<RiskLevel, string> = {
-  low: "bg-green-900/30 text-green-400",
-  medium: "bg-yellow-900/30 text-yellow-400",
-  high: "bg-orange-900/30 text-orange-400",
-  critical: "bg-red-900/30 text-red-400",
+  low: "severity-low",
+  medium: "severity-medium",
+  high: "severity-high",
+  critical: "severity-critical",
 };
 
 export const ACTOR_TYPE_ICONS: Record<ActorType, string> = {
-  HUMAN: "👤",
-  SERVICE: "⚙️",
-  AI_AGENT: "🤖",
+  HUMAN: "H",
+  SERVICE: "S",
+  AI_AGENT: "AI",
 };
 
 export interface AuditEvent {
@@ -91,10 +91,10 @@ export type AlertSeverity = "low" | "medium" | "high" | "critical";
 export type AlertStatus = "open" | "acknowledged" | "resolved" | "suppressed";
 
 export const SEVERITY_COLORS: Record<AlertSeverity, string> = {
-  low: "bg-green-900/30 text-green-400 border-green-800",
-  medium: "bg-yellow-900/30 text-yellow-400 border-yellow-800",
-  high: "bg-orange-900/30 text-orange-400 border-orange-800",
-  critical: "bg-red-900/30 text-red-400 border-red-800",
+  low: "severity-low",
+  medium: "severity-medium",
+  high: "severity-high",
+  critical: "severity-critical",
 };
 
 export const STATUS_COLORS: Record<AlertStatus, string> = {
@@ -126,7 +126,11 @@ export interface AlertDetail extends AlertListItem {
   acknowledged_at: string | null;
   resolved_at: string | null;
   resolution_note: string;
-  notifications_sent: Array<{ channel: string; outcome: string; timestamp: string }>;
+  notifications_sent: Array<{
+    channel: string;
+    outcome: string;
+    timestamp: string;
+  }>;
   updated_at: string;
 }
 
@@ -216,7 +220,8 @@ export interface APIKeyCreated extends APIKeyListItem {
 
 export type ReportType = "pci_dss" | "soc2" | "custom";
 export type ReportFormat = "pdf" | "csv" | "json";
-export type ReportStatus = "pending" | "generating" | "ready" | "failed" | "expired";
+export type ReportStatus =
+  "pending" | "generating" | "ready" | "failed" | "expired";
 
 export interface ComplianceReport {
   id: string;
@@ -254,8 +259,11 @@ export function getRiskLevel(score: number | null): RiskLevel {
   return "critical";
 }
 
-export function formatActorLabel(event: Pick<AuditEvent, "actor_type" | "actor_email" | "agent_name">): string {
-  if (event.actor_type === "AI_AGENT" && event.agent_name) return `🤖 ${event.agent_name}`;
-  if (event.actor_type === "SERVICE") return `⚙️ Service`;
-  return `👤 ${event.actor_email || "Unknown"}`;
+export function formatActorLabel(
+  event: Pick<AuditEvent, "actor_type" | "actor_email" | "agent_name">,
+): string {
+  if (event.actor_type === "AI_AGENT" && event.agent_name)
+    return `${event.agent_name} · AI agent`;
+  if (event.actor_type === "SERVICE") return `Service`;
+  return `${event.actor_email || "Unknown"}`;
 }

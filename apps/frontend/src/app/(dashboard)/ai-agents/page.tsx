@@ -1,5 +1,6 @@
 "use client";
 
+import { ScanEye } from "lucide-react";
 import { useAPIKeys } from "@/hooks/use-sentinel-data";
 import { useAuditEvents } from "@/hooks/use-sentinel-data";
 import { formatDistanceToNow } from "date-fns";
@@ -7,8 +8,12 @@ import Link from "next/link";
 import { getRiskLevel, RISK_LEVEL_BG } from "@/types/dashboard";
 
 export default function AIAgentsPage() {
-  const { data: keys, isLoading: keysLoading } = useAPIKeys();
-  const { data: recentEvents, isLoading: eventsLoading } = useAuditEvents({
+  const { data: keys, isLoading: keysLoading, error: keysError } = useAPIKeys();
+  const {
+    data: recentEvents,
+    isLoading: eventsLoading,
+    error: eventsError,
+  } = useAuditEvents({
     actor_type: "AI_AGENT",
   });
 
@@ -23,20 +28,35 @@ export default function AIAgentsPage() {
         </p>
       </div>
 
+      {(keysError || eventsError) && (
+        <p role="alert" className="error-banner">
+          Some agent data could not be loaded. Please refresh.
+        </p>
+      )}
+      <Link href="/api-keys" className="button button-white">
+        Manage agent credentials ↗
+      </Link>
       {/* Registered agents */}
       <div className="rounded-xl border border-gray-800 bg-gray-900/50">
         <div className="border-b border-gray-800 px-5 py-4">
-          <h2 className="text-sm font-semibold text-white">Registered Agents</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Registered Agents
+          </h2>
         </div>
         {keysLoading ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-800" />
+              <div
+                key={i}
+                className="h-16 animate-pulse rounded-lg bg-gray-800"
+              />
             ))}
           </div>
         ) : aiKeys.length === 0 ? (
           <div className="px-5 py-10 text-center">
-            <p className="text-sm text-gray-500">No AI agent keys registered yet.</p>
+            <p className="text-sm text-gray-500">
+              No AI agent keys registered yet.
+            </p>
             <p className="mt-1 text-xs text-gray-600">
               Create an API key with actor_type=AI_AGENT to register an agent.
             </p>
@@ -48,11 +68,13 @@ export default function AIAgentsPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-900/40 text-xl">
-                      🤖
+                      <ScanEye size={20} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-white">{key.agent_name || key.name}</p>
+                        <p className="font-medium text-white">
+                          {key.agent_name || key.name}
+                        </p>
                         {key.agent_version && (
                           <span className="rounded bg-gray-800 px-1.5 py-0.5 font-mono text-xs text-gray-400">
                             {key.agent_version}
@@ -90,7 +112,9 @@ export default function AIAgentsPage() {
                     {key.last_used_at && (
                       <p className="mt-0.5">
                         Last:{" "}
-                        {formatDistanceToNow(new Date(key.last_used_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(key.last_used_at), {
+                          addSuffix: true,
+                        })}
                       </p>
                     )}
                     <Link
@@ -110,7 +134,9 @@ export default function AIAgentsPage() {
       {/* Recent AI agent events */}
       <div className="rounded-xl border border-gray-800 bg-gray-900/50">
         <div className="border-b border-gray-800 px-5 py-4">
-          <h2 className="text-sm font-semibold text-white">Recent AI Agent Events</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Recent AI Agent Events
+          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -136,7 +162,10 @@ export default function AIAgentsPage() {
                 ))
               ) : recentEvents?.results.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-600">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm text-gray-600"
+                  >
                     No AI agent events found
                   </td>
                 </tr>
@@ -148,7 +177,14 @@ export default function AIAgentsPage() {
                       <td className="px-4 py-3 font-medium text-white">
                         {event.agent_name || "—"}
                       </td>
-                      <td className="px-4 py-3 text-gray-300">{event.event_type}</td>
+                      <td className="px-4 py-3 text-gray-300">
+                        <Link
+                          href={`/events/${event.id}`}
+                          className="hover:text-sentinel-400"
+                        >
+                          {event.event_type} ↗
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-gray-500">
                         {event.resource_type || "—"}
                         {event.resource_id && (
@@ -169,7 +205,9 @@ export default function AIAgentsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(event.created_at), {
+                          addSuffix: true,
+                        })}
                       </td>
                     </tr>
                   );

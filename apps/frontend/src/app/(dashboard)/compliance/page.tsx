@@ -10,8 +10,9 @@ import { format } from "date-fns";
 import type { ComplianceReport } from "@/types/dashboard";
 
 export default function CompliancePage() {
-  const { data: reports, isLoading } = useComplianceReports();
+  const { data: reports, isLoading, error: loadError } = useComplianceReports();
   const requestReport = useRequestComplianceReport();
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [pollingId, setPollingId] = useState<string | null>(null);
 
@@ -19,7 +20,9 @@ export default function CompliancePage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Compliance Reports</h1>
+          <h1 className="text-xl font-semibold text-white">
+            Compliance Reports
+          </h1>
           <p className="mt-0.5 text-sm text-gray-400">
             Generate evidence packages with AI actor attribution built in
           </p>
@@ -32,12 +35,22 @@ export default function CompliancePage() {
         </button>
       </div>
 
+      {(loadError || requestError) && (
+        <p role="alert" className="error-banner">
+          {requestError || "Reports could not be loaded. Please refresh."}
+        </p>
+      )}
       {showForm && (
         <RequestReportForm
           onSubmit={async (payload) => {
-            const report = await requestReport.mutateAsync(payload);
-            setPollingId(report.id);
-            setShowForm(false);
+            setRequestError(null);
+            try {
+              const report = await requestReport.mutateAsync(payload);
+              setPollingId(report.id);
+              setShowForm(false);
+            } catch {
+              setRequestError("Report request failed. Please try again.");
+            }
           }}
           onCancel={() => setShowForm(false)}
           isSubmitting={requestReport.isPending}
@@ -55,12 +68,17 @@ export default function CompliancePage() {
       {/* Reports table */}
       <div className="rounded-xl border border-gray-800 bg-gray-900/50">
         <div className="border-b border-gray-800 px-5 py-4">
-          <h2 className="text-sm font-semibold text-white">Generated Reports</h2>
+          <h2 className="text-sm font-semibold text-white">
+            Generated Reports
+          </h2>
         </div>
         {isLoading ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-800" />
+              <div
+                key={i}
+                className="h-14 animate-pulse rounded-lg bg-gray-800"
+              />
             ))}
           </div>
         ) : !reports?.length ? (
@@ -101,16 +119,26 @@ function RequestReportForm({
     d.setDate(d.getDate() - 30);
     return d.toISOString().slice(0, 10);
   });
-  const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [toDate, setToDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
 
   return (
     <div className="rounded-xl border border-gray-700 bg-gray-900 p-5 space-y-4">
-      <h2 className="text-sm font-semibold text-white">Request Compliance Report</h2>
+      <h2 className="text-sm font-semibold text-white">
+        Request Compliance Report
+      </h2>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">Report Type</label>
+          <label
+            htmlFor="report-type"
+            className="mb-1 block text-xs font-medium text-gray-400"
+          >
+            Report Type
+          </label>
           <select
+            id="report-type"
             value={reportType}
             onChange={(e) => setReportType(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-sentinel-500 focus:outline-none"
@@ -121,8 +149,14 @@ function RequestReportForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">Format</label>
+          <label
+            htmlFor="report-format"
+            className="mb-1 block text-xs font-medium text-gray-400"
+          >
+            Format
+          </label>
           <select
+            id="report-format"
             value={reportFormat}
             onChange={(e) => setReportFormat(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-sentinel-500 focus:outline-none"
@@ -133,18 +167,30 @@ function RequestReportForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">From</label>
+          <label
+            htmlFor="from-date"
+            className="mb-1 block text-xs font-medium text-gray-400"
+          >
+            From
+          </label>
           <input
             type="date"
+            id="from-date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-sentinel-500 focus:outline-none"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-400">To</label>
+          <label
+            htmlFor="to-date"
+            className="mb-1 block text-xs font-medium text-gray-400"
+          >
+            To
+          </label>
           <input
             type="date"
+            id="to-date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-sentinel-500 focus:outline-none"
@@ -153,12 +199,21 @@ function RequestReportForm({
       </div>
 
       <p className="rounded-lg border border-indigo-900/50 bg-indigo-950/30 px-4 py-3 text-xs text-indigo-300">
-        🤖 AI actor attribution is included automatically in all Sentinel reports — human,
-        service, and AI agent activity appears in separate sections with agent names and versions.
+        AI actor attribution is included automatically in all Sentinel reports —
+        human, service, and AI agent activity appears in separate sections with
+        agent names and versions.
       </p>
 
+      {fromDate > toDate && (
+        <p role="alert" className="text-red-400">
+          The start date must be on or before the end date.
+        </p>
+      )}
       <div className="flex justify-end gap-3">
-        <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-400 hover:text-white">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-gray-400 hover:text-white"
+        >
           Cancel
         </button>
         <button
@@ -171,7 +226,7 @@ function RequestReportForm({
               filters: {},
             })
           }
-          disabled={isSubmitting}
+          disabled={isSubmitting || !fromDate || !toDate || fromDate > toDate}
           className="rounded-lg bg-sentinel-600 px-4 py-2 text-sm font-medium text-white hover:bg-sentinel-500 disabled:opacity-40"
         >
           {isSubmitting ? "Requesting…" : "Generate Report"}
@@ -181,7 +236,13 @@ function RequestReportForm({
   );
 }
 
-function PendingReportCard({ reportId, onDone }: { reportId: string; onDone: () => void }) {
+function PendingReportCard({
+  reportId,
+  onDone,
+}: {
+  reportId: string;
+  onDone: () => void;
+}) {
   const { data: report } = useComplianceReport(reportId);
 
   if (!report) return null;
@@ -189,7 +250,9 @@ function PendingReportCard({ reportId, onDone }: { reportId: string; onDone: () 
   if (report.status === "ready") {
     return (
       <div className="rounded-xl border border-green-800 bg-green-900/20 p-5">
-        <p className="mb-3 text-sm font-semibold text-green-400">✓ Report ready</p>
+        <p className="mb-3 text-sm font-semibold text-green-400">
+          ✓ Report ready
+        </p>
         <div className="flex items-center gap-3">
           <a
             href={`/api/internal/proxy/compliance/reports/${report.id}/download`}
@@ -198,7 +261,10 @@ function PendingReportCard({ reportId, onDone }: { reportId: string; onDone: () 
           >
             Download {report.report_format.toUpperCase()}
           </a>
-          <button onClick={onDone} className="text-sm text-gray-500 hover:text-gray-400">
+          <button
+            onClick={onDone}
+            className="text-sm text-gray-500 hover:text-gray-400"
+          >
             Dismiss
           </button>
         </div>
@@ -209,9 +275,14 @@ function PendingReportCard({ reportId, onDone }: { reportId: string; onDone: () 
   if (report.status === "failed") {
     return (
       <div className="rounded-xl border border-red-800 bg-red-900/20 p-5">
-        <p className="text-sm font-semibold text-red-400">Report generation failed</p>
+        <p className="text-sm font-semibold text-red-400">
+          Report generation failed
+        </p>
         <p className="mt-1 text-xs text-red-400/70">{report.error_message}</p>
-        <button onClick={onDone} className="mt-2 text-xs text-gray-500 hover:text-gray-400">
+        <button
+          onClick={onDone}
+          className="mt-2 text-xs text-gray-500 hover:text-gray-400"
+        >
           Dismiss
         </button>
       </div>
@@ -223,7 +294,9 @@ function PendingReportCard({ reportId, onDone }: { reportId: string; onDone: () 
       <div className="flex items-center gap-3">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-sentinel-500 border-t-transparent" />
         <p className="text-sm text-gray-300">
-          {report.status === "pending" ? "Queued for generation…" : "Generating report…"}
+          {report.status === "pending"
+            ? "Queued for generation…"
+            : "Generating report…"}
         </p>
       </div>
     </div>
@@ -247,14 +320,16 @@ function ReportRow({ report }: { report: ComplianceReport }) {
             {report.report_type === "pci_dss"
               ? "PCI-DSS"
               : report.report_type === "soc2"
-              ? "SOC 2"
-              : "Custom"}{" "}
+                ? "SOC 2"
+                : "Custom"}{" "}
             Evidence
           </span>
           <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs uppercase text-gray-400">
             {report.report_format}
           </span>
-          <span className={`text-xs font-medium ${statusColors[report.status] ?? "text-gray-500"}`}>
+          <span
+            className={`text-xs font-medium ${statusColors[report.status] ?? "text-gray-500"}`}
+          >
             {report.status}
           </span>
         </div>
@@ -268,7 +343,7 @@ function ReportRow({ report }: { report: ComplianceReport }) {
           )}
           {(report.summary.ai_agents_involved?.length ?? 0) > 0 && (
             <span className="ml-2 text-indigo-500">
-              🤖 {report.summary.ai_agents_involved!.length} AI agent
+              {report.summary.ai_agents_involved!.length} AI agent
               {report.summary.ai_agents_involved!.length > 1 ? "s" : ""}
             </span>
           )}

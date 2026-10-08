@@ -18,17 +18,19 @@ Read:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/sentinel.git
-cd sentinel
+git clone https://github.com/Gwerdonatus/Sentinel.git
+cd Sentinel
 
 # Copy environment files
 cp .env.example .env
 
 # Start the full stack
-docker compose up --build
+docker compose up -d --build --wait --wait-timeout 300
 
 # Run backend tests
-docker compose exec backend pytest
+docker compose run --rm --no-deps --user root \
+  -e ENVIRONMENT=test -e KAFKA_ENABLED=False -e OTEL_ENABLED=False \
+  backend sh -c 'pip install -r requirements-dev.txt && pytest --cov=sentinel'
 
 # Run frontend type check
 docker compose exec frontend npm run type-check
@@ -59,9 +61,11 @@ Open a discussion before implementing. Features that affect the core event schem
 4. Ensure all CI checks pass locally:
    ```bash
    # Backend
-   docker compose exec backend ruff check .
-   docker compose exec backend mypy sentinel/
-   docker compose exec backend pytest
+   # Use the disposable test container described in the README for Ruff,
+   # Django checks and tests; development dependencies are not in runtime images.
+   docker compose run --rm --no-deps --user root \
+     -e ENVIRONMENT=test -e KAFKA_ENABLED=False -e OTEL_ENABLED=False \
+     backend sh -c 'pip install -r requirements-dev.txt && pytest --cov=sentinel'
 
    # Frontend
    docker compose exec frontend npm run lint
@@ -69,7 +73,7 @@ Open a discussion before implementing. Features that affect the core event schem
    ```
 5. Write or update tests (coverage must not decrease)
 6. Update documentation if your change affects behavior
-7. Submit the PR targeting `develop`
+7. Submit the PR targeting `main`
 
 ---
 

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,7 +24,9 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : "Invalid credentials. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Invalid credentials. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -30,27 +34,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sentinel-600">
-            <ShieldIcon />
-          </div>
-          <span className="text-xl font-semibold text-white">Sentinel</span>
+    <div className="login-page workspace flex min-h-full items-center justify-center px-6">
+      <div className="login-card w-full max-w-sm">
+        <div className="mb-10">
+          <Brand />
         </div>
-
-        <h1 className="mb-1 text-2xl font-bold text-white">Sign in</h1>
+        <h1 className="mb-1 text-2xl font-bold text-white">Welcome back.</h1>
         <p className="mb-8 text-sm text-gray-400">
-          Security & audit platform access
+          A clearer view starts here. Sign in to your workspace.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-300">
+            <label
+              htmlFor="email"
+              className="mb-1.5 block text-sm font-medium text-gray-300"
+            >
               Email address
             </label>
             <input
+              id="email"
               type="email"
               autoComplete="email"
               required
@@ -62,10 +65,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-300">
+            <label
+              htmlFor="password"
+              className="mb-1.5 block text-sm font-medium text-gray-300"
+            >
               Password
             </label>
             <input
+              id="password"
               type="password"
               autoComplete="current-password"
               required
@@ -90,6 +97,9 @@ export default function LoginPage() {
             {isLoading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+        <Link href="/" className="login-back">
+          ← Back to Sentinel 2
+        </Link>
 
         <p className="mt-6 text-center text-xs text-gray-600">
           Access is controlled by your administrator.
@@ -98,13 +108,5 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-white" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-    </svg>
   );
 }

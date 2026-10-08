@@ -207,6 +207,12 @@ class Alert(TimestampedModel):
             models.Index(fields=["agent_name", "created_at"], name="idx_alert_agent"),
             models.Index(fields=["rule", "actor_id", "created_at"], name="idx_alert_rule_actor"),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rule", "audit_event_id"],
+                name="uniq_alert_rule_event",
+            )
+        ]
         verbose_name = "Alert"
         verbose_name_plural = "Alerts"
 

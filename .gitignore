@@ -38,6 +38,7 @@ MANIFEST
 
 # Virtual environments
 .venv/
+.venv-*/
 venv/
 ENV/
 env.bak/
@@ -63,6 +64,8 @@ dmypy.json
 *.log
 db.sqlite3
 db.sqlite3-journal
+test.sqlite3
+test.sqlite3-journal
 apps/backend/staticfiles/
 apps/backend/media/
 
@@ -71,6 +74,7 @@ apps/backend/media/
 # =============================================================================
 node_modules/
 apps/frontend/.next/
+apps/frontend/.next-dev/
 apps/frontend/out/
 apps/frontend/.turbo/
 *.tsbuildinfo

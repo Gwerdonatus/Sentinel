@@ -8,8 +8,8 @@ Orchestrates the full risk pipeline for a single audit event:
   4. Create Alert records for any matching rules (respecting suppression window)
   5. Dispatch notification tasks for each new alert
 
-This service is called from a Celery task triggered on every audit event ingest.
-It must be fast (< 500ms per event at P99) and must never crash the pipeline.
+This service is called by the Kafka risk consumer. Reprocessing an event is safe:
+the score is overwritten and rule/event uniqueness prevents duplicate alerts.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from sentinel.risk.engine import RiskEngine, RiskScore
@@ -93,21 +94,33 @@ class RiskService:
                 continue
 
             with transaction.atomic():
-                alert = Alert.objects.create(
+                alert, created = Alert.objects.get_or_create(
                     rule=rule,
                     audit_event_id=event.id,
-                    severity=rule.severity,
-                    actor_id=event.actor_id,
-                    actor_type=getattr(event, "actor_type", "HUMAN"),
-                    actor_email=event.actor_email,
-                    agent_name=getattr(event, "agent_name", ""),
-                    risk_score=risk_score.score,
-                    risk_level=risk_score.level,
-                    risk_explanation=risk_score.explanation,
+                    defaults={
+                        "tenant_id": event.tenant_id,
+                        "severity": rule.severity,
+                        "actor_id": event.actor_id,
+                        "actor_type": getattr(event, "actor_type", "HUMAN"),
+                        "actor_email": event.actor_email,
+                        "agent_name": getattr(event, "agent_name", ""),
+                        "risk_score": risk_score.score,
+                        "risk_level": risk_score.level,
+                        "risk_explanation": risk_score.explanation,
+                    },
                 )
 
+                if not created:
+                    logger.info(
+                        "alert_already_exists",
+                        alert_id=str(alert.id),
+                        rule_name=rule.name,
+                        event_id=str(event.id),
+                    )
+                    continue
+
                 # Increment rule trigger count
-                AlertRule.objects.filter(id=rule.id).update(trigger_count=rule.trigger_count + 1)
+                AlertRule.objects.filter(id=rule.id).update(trigger_count=F("trigger_count") + 1)
 
             logger.info(
                 "alert_created",
