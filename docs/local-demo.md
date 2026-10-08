@@ -98,3 +98,14 @@ docker compose run --rm --no-deps --user root \
 ```
 
 The Sentinel 2 homepage is at `/`, the integration guide at `/developers`, and the scoped frontend/backend status view at `/status`. See [the interface conventions](design-system.md).
+
+## Recording rehearsal (about three minutes)
+
+1. **Homepage, 20 seconds.** “Sentinel 2 makes activity across people, services and AI agents visible in one workspace.” Show the logo and enter the workspace.
+2. **Overview, 30 seconds.** “Color follows actual severity: critical is red, high is amber, medium is yellow, and low is green. The banner reflects the highest open severity.” Show the priority inbox and current counts. Counts reflect investigation state; acknowledging an alert changes the open count.
+3. **AI agent timeline, 40 seconds.** Select `reconciliation-agent`, show its normal support-ticket history, then open its synthetic transfer event. “This change in behavior receives a risk score of 60. It is a monitoring signal, not proof of prompt injection.”
+4. **Alert investigation, 40 seconds.** Open the linked alert and show the explanation and triggering event. Explain acknowledge/resolve controls without changing the recording dataset during rehearsal.
+5. **Identity and integration, 30 seconds.** Show the demo API key's agent identity and limited scope; keep actual key material off screen. Open the developer guide to show ingestion and the real schema.
+6. **Close, 20 seconds.** “The audit outbox preserves publication intent; Kafka triggers scoring; alerts are idempotent. This walkthrough uses clearly labeled synthetic data.”
+
+Rehearsal does not need a new account, new credentials or external notifications. Preserve existing acknowledged/resolved alerts; seeding does not reset investigation history. The optional Kafka failure-recovery sequence above is a separate technical segment.

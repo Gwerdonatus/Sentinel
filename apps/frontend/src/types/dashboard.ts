@@ -46,17 +46,17 @@ export type ActorType = "HUMAN" | "SERVICE" | "AI_AGENT";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
 export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
-  low: "text-green-400",
-  medium: "text-yellow-400",
-  high: "text-orange-400",
-  critical: "text-red-500",
+  low: "risk-text-low",
+  medium: "risk-text-medium",
+  high: "risk-text-high",
+  critical: "risk-text-critical",
 };
 
 export const RISK_LEVEL_BG: Record<RiskLevel, string> = {
-  low: "bg-green-900/30 text-green-400",
-  medium: "bg-yellow-900/30 text-yellow-400",
-  high: "bg-orange-900/30 text-orange-400",
-  critical: "bg-red-900/30 text-red-400",
+  low: "severity-low",
+  medium: "severity-medium",
+  high: "severity-high",
+  critical: "severity-critical",
 };
 
 export const ACTOR_TYPE_ICONS: Record<ActorType, string> = {
@@ -91,10 +91,10 @@ export type AlertSeverity = "low" | "medium" | "high" | "critical";
 export type AlertStatus = "open" | "acknowledged" | "resolved" | "suppressed";
 
 export const SEVERITY_COLORS: Record<AlertSeverity, string> = {
-  low: "bg-green-900/30 text-green-400 border-green-800",
-  medium: "bg-yellow-900/30 text-yellow-400 border-yellow-800",
-  high: "bg-orange-900/30 text-orange-400 border-orange-800",
-  critical: "bg-red-900/30 text-red-400 border-red-800",
+  low: "severity-low",
+  medium: "severity-medium",
+  high: "severity-high",
+  critical: "severity-critical",
 };
 
 export const STATUS_COLORS: Record<AlertStatus, string> = {

@@ -15,13 +15,26 @@ import {
   useAlerts,
   useAuditEvents,
 } from "@/hooks/use-sentinel-data";
-import { SEVERITY_COLORS } from "@/types/dashboard";
+import { getRiskLevel, SEVERITY_COLORS } from "@/types/dashboard";
 
 export default function DashboardPage() {
   const summaryQuery = useRiskSummary();
   const alertsQuery = useAlerts({ status: "open" });
   const eventsQuery = useAuditEvents();
   const summary = summaryQuery.data;
+  const urgency = summary?.open_alerts.critical
+    ? "critical"
+    : summary?.open_alerts.high
+      ? "high"
+      : summary?.open_alerts.medium
+        ? "medium"
+        : summary?.open_alerts.low
+          ? "low"
+          : "clear";
+  const priority = { critical: 4, high: 3, medium: 2, low: 1 };
+  const priorityAlerts = [...(alertsQuery.data?.results ?? [])].sort(
+    (a, b) => priority[b.severity] - priority[a.severity],
+  );
   const busy =
     summaryQuery.isFetching || alertsQuery.isFetching || eventsQuery.isFetching;
   function refresh() {
@@ -55,15 +68,22 @@ export default function DashboardPage() {
           Some workspace data could not be loaded. Refresh to try again.
         </div>
       )}
-      <section className="attention-banner">
+      <section className={`attention-banner urgency-${urgency}`}>
         <div className="attention-icon">
           <ScanEye size={26} strokeWidth={1.5} />
         </div>
         <div>
+          <div className="urgency-label">
+            {summary
+              ? urgency === "clear"
+                ? "Monitoring · All clear"
+                : `${urgency} priority · Investigate`
+              : "Checking status"}
+          </div>
           <h2>
             {summary
               ? summary.open_alerts.total
-                ? `${summary.open_alerts.total} signals need your attention.`
+                ? `${summary.open_alerts.total} ${summary.open_alerts.total === 1 ? "signal needs" : "signals need"} your attention.`
                 : "Your alert inbox is clear."
               : "Reading your security signals…"}
           </h2>
@@ -85,7 +105,7 @@ export default function DashboardPage() {
             sub: "Awaiting investigation",
             icon: Bell,
             href: "/alerts",
-            color: "coral",
+            color: summary?.open_alerts.total ? `urgent-${urgency}` : "blue",
           },
           {
             label: "Events observed",
@@ -101,7 +121,7 @@ export default function DashboardPage() {
             sub: "Risk score of 50 or above · 24h",
             icon: ScanEye,
             href: "/events",
-            color: "amber",
+            color: summary?.last_24h.high_risk_events ? "urgent-high" : "blue",
           },
           {
             label: "AI agent activity",
@@ -145,10 +165,10 @@ export default function DashboardPage() {
               Loading alerts…
             </p>
           ) : alertsQuery.data?.results.length ? (
-            alertsQuery.data.results.slice(0, 4).map((a) => (
+            priorityAlerts.slice(0, 4).map((a) => (
               <Link
                 href={`/alerts/${a.id}`}
-                className="priority-row"
+                className={`priority-row priority-${a.severity}`}
                 key={a.id}
               >
                 <span className="alert-glyph">
@@ -194,7 +214,10 @@ export default function DashboardPage() {
           </div>
           <div className="severity-list">
             {(["critical", "high", "medium", "low"] as const).map((s) => (
-              <div key={s}>
+              <div
+                key={s}
+                className={`severity-count ${s} ${(summary?.open_alerts[s] ?? 0) > 0 ? "has-signals" : ""}`}
+              >
                 <span>
                   <i className={`severity-dot ${s}`} />
                   {s}
@@ -245,7 +268,7 @@ export default function DashboardPage() {
                   <td>{e.resource_type || "—"}</td>
                   <td>
                     <span
-                      className={`score-chip ${(e.risk_score ?? 0) >= 50 ? "elevated" : ""}`}
+                      className={`score-chip ${e.risk_score === null ? "" : SEVERITY_COLORS[getRiskLevel(e.risk_score)]}`}
                     >
                       {e.risk_score ?? "Pending"}
                     </span>

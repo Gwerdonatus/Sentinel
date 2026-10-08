@@ -1664,3 +1664,202 @@
     height: 37px;
   }
 }
+
+/* Operational severity: written labels and counts accompany every color. */
+.workspace .severity-critical {
+  background: #fff1f2;
+  color: #b91c1c;
+  border-color: #dc2626;
+}
+.attention-banner.urgency-critical {
+  background: #fff1f2;
+  border-color: #dc2626;
+  border-left: 5px solid #dc2626;
+}
+.urgency-critical .attention-icon,
+.urgency-critical .urgency-label {
+  color: #b91c1c;
+}
+.metric-card.urgent-critical {
+  border-top: 3px solid #dc2626;
+  background: #fff1f2;
+}
+.metric-card.urgent-critical > strong,
+.metric-card.urgent-critical svg {
+  color: #b91c1c;
+}
+.priority-critical {
+  border-left: 4px solid #dc2626;
+}
+.priority-critical .alert-glyph {
+  background: #fff1f2;
+  color: #dc2626;
+  border-color: #dc2626;
+}
+.severity-dot.critical {
+  background: #dc2626;
+}
+.severity-list .has-signals.critical {
+  background: #fff1f2;
+  color: #b91c1c;
+}
+.workspace .severity-high {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #ea580c;
+}
+.attention-banner.urgency-high {
+  background: #fff7ed;
+  border-color: #ea580c;
+  border-left: 5px solid #ea580c;
+}
+.urgency-high .attention-icon,
+.urgency-high .urgency-label {
+  color: #9a3412;
+}
+.metric-card.urgent-high {
+  border-top: 3px solid #ea580c;
+  background: #fff7ed;
+}
+.metric-card.urgent-high > strong,
+.metric-card.urgent-high svg {
+  color: #9a3412;
+}
+.priority-high {
+  border-left: 4px solid #ea580c;
+}
+.priority-high .alert-glyph {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: #ea580c;
+}
+.severity-dot.high {
+  background: #ea580c;
+}
+.severity-list .has-signals.high {
+  background: #fff7ed;
+  color: #9a3412;
+}
+.workspace .severity-medium {
+  background: #fefce8;
+  color: #713f12;
+  border-color: #eab308;
+}
+.attention-banner.urgency-medium {
+  background: #fefce8;
+  border-color: #eab308;
+  border-left: 5px solid #eab308;
+}
+.urgency-medium .attention-icon,
+.urgency-medium .urgency-label {
+  color: #713f12;
+}
+.metric-card.urgent-medium {
+  border-top: 3px solid #eab308;
+  background: #fefce8;
+}
+.metric-card.urgent-medium > strong,
+.metric-card.urgent-medium svg {
+  color: #713f12;
+}
+.priority-medium {
+  border-left: 4px solid #eab308;
+}
+.priority-medium .alert-glyph {
+  background: #fefce8;
+  color: #eab308;
+  border-color: #eab308;
+}
+.severity-dot.medium {
+  background: #eab308;
+}
+.severity-list .has-signals.medium {
+  background: #fefce8;
+  color: #713f12;
+}
+.workspace .severity-low {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #16a34a;
+}
+.attention-banner.urgency-low {
+  background: #f0fdf4;
+  border-color: #16a34a;
+  border-left: 5px solid #16a34a;
+}
+.urgency-low .attention-icon,
+.urgency-low .urgency-label {
+  color: #166534;
+}
+.metric-card.urgent-low {
+  border-top: 3px solid #16a34a;
+  background: #f0fdf4;
+}
+.metric-card.urgent-low > strong,
+.metric-card.urgent-low svg {
+  color: #166534;
+}
+.priority-low {
+  border-left: 4px solid #16a34a;
+}
+.priority-low .alert-glyph {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #16a34a;
+}
+.severity-dot.low {
+  background: #16a34a;
+}
+.severity-list .has-signals.low {
+  background: #f0fdf4;
+  color: #166534;
+}
+.urgency-label {
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.attention-banner p {
+  color: #475569;
+}
+.workspace .urgency-critical .button-dark {
+  background: #b91c1c;
+}
+.workspace .urgency-high .button-dark {
+  background: #c2410c;
+}
+.severity-pill {
+  font-weight: 750;
+  padding: 5px 8px;
+  border: 1px solid;
+}
+.severity-dot {
+  width: 9px;
+  height: 9px;
+}
+.severity-list .has-signals {
+  padding: 10px 12px;
+  margin: 5px -12px;
+  border-radius: 8px;
+  font-weight: 650;
+}
+.severity-list .has-signals strong {
+  color: inherit;
+  font-weight: 750;
+  font-size: 16px;
+}
+
+.workspace .risk-text-critical {
+  color: #dc2626;
+}
+.workspace .risk-text-high {
+  color: #c2410c;
+}
+.workspace .risk-text-medium {
+  color: #854d0e;
+}
+.workspace .risk-text-low {
+  color: #15803d;
+}
