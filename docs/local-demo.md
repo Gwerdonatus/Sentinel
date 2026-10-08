@@ -11,7 +11,10 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py seed_demo
 ```
 
-The command prints a rotated test API key once. Never record or publish that key.
+The first run prints a test API key once. Never record or publish that key.
+Subsequent runs preserve the key, agent identity, and nine synthetic events.
+Run the command twice to verify this. Risk scores and alerts appear asynchronously
+after Celery publishes the outbox and the Kafka consumer processes the events.
 
 Open `http://localhost:3000` and sign in with:
 
@@ -45,3 +48,30 @@ Sentinel derives actor identity from the JWT or API key. The submitting system s
 reports the business action and resource metadata. Sentinel provides authenticated,
 tamper-evident reporting and behavioural monitoring; it is not independent proof
 that an uninstrumented action never occurred.
+
+## Local runtime checks
+
+Compose uses service-specific checks: Django and Next.js HTTP endpoints, a targeted
+Celery worker ping, Beat's live PID and Redis connectivity, Flower's authenticated
+HTTP endpoint, and the Kafka consumer process plus broker metadata. Wait for
+initialization before diagnosing a service marked `starting`.
+
+The worker consumes `default`, `high_priority`, and the legacy `celery` queue so
+previously queued work is retained. New tasks use `default`. Beat stores its PID
+and schedule under `/tmp`, rather than writing runtime files into the checkout.
+
+PostgreSQL and Redis are reachable on the Compose network without publishing
+host ports. PostgreSQL preloads `pg_stat_statements`. Nginx routes
+`/api/internal/` to Next.js so cookie-based login also works through
+`http://localhost`; Django's versioned API remains under `/api/v1/`.
+
+The current OpenTelemetry instrumentation still requires `pkg_resources`, so
+backend requirements constrain setuptools below 82, where that API was removed.
+See [setuptools documentation](https://setuptools.pypa.io/en/stable/deprecated/pkg_resources.html).
+CI checks instrumented WSGI startup as well as migration consistency and Compose
+configuration. A future instrumentation upgrade should remove this constraint.
+
+Slack/email delivery requires explicit notification destinations. The local
+walkthrough verifies persisted in-app alerts; it does not send external messages.
+Production notification delivery and Kafka consumer-lag monitoring require the
+additional integrations documented in the infrastructure configuration.

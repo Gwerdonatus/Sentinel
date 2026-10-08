@@ -179,7 +179,7 @@ async function SystemStatusStrip() {
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://backend:8000"}/health/live/`,
+      `${process.env.BACKEND_INTERNAL_URL ?? "http://backend:8000"}/health/live/`,
       { next: { revalidate: 30 }, signal: AbortSignal.timeout(3000) }
     );
     if (res.ok) apiStatus = "operational";

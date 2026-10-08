@@ -309,6 +309,7 @@ SPECTACULAR_SETTINGS = {
 # =============================================================================
 CELERY_BROKER_URL: str = config("CELERY_BROKER_URL", default="redis://redis:6379/1")
 CELERY_RESULT_BACKEND: str = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/2")
+CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]

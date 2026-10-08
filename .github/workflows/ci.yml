@@ -192,8 +192,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Check migration consistency
+        run: python -m django makemigrations --check --dry-run
+
       - name: Run migrations
         run: python -m django migrate --noinput
+
+      - name: Check instrumented WSGI startup
+        env:
+          OTEL_ENABLED: "True"
+        run: python -c "from config.wsgi import application; assert callable(application)"
 
       - name: Run tests with coverage
         run: |
@@ -320,6 +328,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

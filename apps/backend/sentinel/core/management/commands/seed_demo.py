@@ -14,7 +14,6 @@ from sentinel.api_keys.models import APIKey
 from sentinel.api_keys.services import APIKeyService
 from sentinel.audit.models import ActorType, AuditEvent
 from sentinel.audit.services import AuditEventService
-from sentinel.risk.services import RiskService
 
 
 class Command(BaseCommand):
@@ -40,9 +39,8 @@ class Command(BaseCommand):
             name="Demo Reconciliation Agent",
             deleted_at__isnull=True,
         ).first()
-        if key:
-            key, full_key = key_service.rotate(str(key.id), requesting_user=admin)
-        else:
+        full_key = None
+        if key is None:
             key, full_key = key_service.create(
                 name="Demo Reconciliation Agent",
                 actor_type=APIKeyActorType.AI_AGENT,
@@ -95,11 +93,15 @@ class Command(BaseCommand):
                 request_id=suspicious_request_id,
             )
 
-        RiskService().process_event(str(suspicious.id))
+        # The outbox publisher and Kafka consumer own scoring, including demo events.
 
         self.stdout.write(self.style.SUCCESS("Synthetic Sentinel demo data is ready."))
         self.stdout.write("Dashboard: http://localhost:3000")
         self.stdout.write("Login: demo.admin@sentinel.local")
         self.stdout.write("Password: SentinelDemo123!")
-        self.stdout.write(f"Rotated demo API key (shown once): {full_key}")
+        if full_key:
+            self.stdout.write(f"Demo API key (shown once): {full_key}")
+        else:
+            self.stdout.write("Existing demo API key and agent identity preserved.")
+        self.stdout.write("Risk scores and alerts appear after Kafka processes the outbox.")
         self.stdout.write("All generated audit events contain metadata.demo_data=true.")

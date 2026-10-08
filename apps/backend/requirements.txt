@@ -62,3 +62,6 @@ gunicorn==23.0.*
 # =============================================================================
 # Development-only dependencies (install with: pip install -r requirements-dev.txt)
 # =============================================================================
+
+# OpenTelemetry 0.48 still imports pkg_resources, removed in setuptools 82.
+setuptools>=70,<82

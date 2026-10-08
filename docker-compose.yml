@@ -145,8 +145,14 @@ services:
       celery -A config.celery worker
       --loglevel=info
       --concurrency=4
-      --queues=default,high_priority
+      --queues=default,high_priority,celery
       --prefetch-multiplier=1
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config.celery inspect ping --destination celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -173,6 +179,14 @@ services:
     command: >
       celery -A config.celery beat
       --loglevel=info
+      --pidfile=/tmp/celerybeat.pid
+      --schedule=/tmp/celerybeat-schedule
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; from pathlib import Path; import redis; os.kill(int(Path('/tmp/celerybeat.pid').read_text()), 0); redis.Redis.from_url(os.environ['CELERY_BROKER_URL']).ping()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       - worker
     networks:
@@ -193,7 +207,12 @@ services:
     command: >
       celery -A config.celery flower
       --port=5555
-      --basic_auth=sentinel:sentinel_flower_password
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, base64, urllib.request; r = urllib.request.Request('http://localhost:5555/', headers={'Authorization': 'Basic ' + base64.b64encode(os.environ['FLOWER_BASIC_AUTH'].encode()).decode()}); urllib.request.urlopen(r, timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     ports:
       - "5555:5555"
     depends_on:
@@ -211,6 +230,7 @@ services:
       target: builder  # Use builder stage in dev for hot reload
     restart: unless-stopped
     environment:
+      BACKEND_INTERNAL_URL: http://backend:8000
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NEXT_PUBLIC_APP_ENV: development
       NODE_ENV: development
@@ -221,6 +241,12 @@ services:
     ports:
       - "3000:3000"
     command: npm run dev
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       - backend
     networks:
@@ -299,6 +325,12 @@ services:
     volumes:
       - ./apps/backend:/app
     command: python manage.py run_kafka_consumer
+    healthcheck:
+      test: ["CMD", "python", "-c", "from pathlib import Path; from confluent_kafka.admin import AdminClient; assert b'run_kafka_consumer' in Path('/proc/1/cmdline').read_bytes(); AdminClient({'bootstrap.servers': 'kafka:9092'}).list_topics(timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       kafka:
         condition: service_healthy
@@ -332,6 +364,7 @@ services:
       - "--web.enable-lifecycle"
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
