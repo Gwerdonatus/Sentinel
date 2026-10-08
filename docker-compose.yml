@@ -48,8 +48,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
+    # PostgreSQL is intentionally available only on the Compose network.
+    # Use `docker compose exec postgres psql ...` for local inspection so the
+    # stack does not collide with an existing host PostgreSQL installation.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel_db"]
       interval: 5s
@@ -73,8 +74,8 @@ services:
       --appendfsync everysec
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    # Redis is consumed by containers on `sentinel_net`; publishing its port on
+    # the host is unnecessary and commonly conflicts with other local projects.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
