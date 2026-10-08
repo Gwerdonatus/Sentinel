@@ -111,9 +111,7 @@ def publish_pending_audit_events_task(self: object, batch_size: int = 100) -> di
                 delay_seconds = min(300, 2 ** min(entry.attempts, 8))
                 entry.next_attempt_at = timezone.now() + timedelta(seconds=delay_seconds)
                 entry.last_error = str(exc)[:2000]
-                entry.save(
-                    update_fields=["attempts", "next_attempt_at", "last_error"]
-                )
+                entry.save(update_fields=["attempts", "next_attempt_at", "last_error"])
                 failed += 1
                 logger.warning(
                     "audit_outbox_publish_failed",

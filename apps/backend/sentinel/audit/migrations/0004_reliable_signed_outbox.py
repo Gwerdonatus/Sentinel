@@ -38,12 +38,23 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="AuditOutbox",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
                 ("attempts", models.PositiveIntegerField(default=0)),
-                ("next_attempt_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                (
+                    "next_attempt_at",
+                    models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
                 ("published_at", models.DateTimeField(blank=True, db_index=True, null=True)),
                 ("last_error", models.TextField(blank=True, default="")),
-                ("created_at", models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                (
+                    "created_at",
+                    models.DateTimeField(db_index=True, default=django.utils.timezone.now),
+                ),
                 (
                     "audit_event",
                     models.OneToOneField(
