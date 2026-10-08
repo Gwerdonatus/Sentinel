@@ -3,7 +3,6 @@
 Security and audit monitoring for applications where people, services and AI agents perform sensitive actions.
 
 [![CI](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml/badge.svg?branch=fix%2Freliable-audit-pipeline)](https://github.com/Gwerdonatus/Sentinel/actions?query=branch%3Afix%2Freliable-audit-pipeline)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A valid credential identifies a reporter. It does not tell an investigator whether the reported action fits that actor's normal behavior. Sentinel records activity, applies explainable risk rules, and links alerts to the event and actor history needed for investigation.
 
@@ -183,4 +182,3 @@ docker compose run --rm --no-deps -e NODE_ENV=production \
 
 [Architecture](docs/architecture.md) · [ADR index](docs/adr/README.md) · [Security policy](docs/security-policy.md) · [Contributing](docs/contributing.md) · [Roadmap](docs/roadmap.md)
 
-MIT licensed. See [LICENSE](LICENSE).
