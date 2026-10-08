@@ -1,6 +1,7 @@
 "use client";
 
 import { use } from "react";
+import Link from "next/link";
 import { useActorRiskProfile, useAuditEvents } from "@/hooks/use-sentinel-data";
 import { format } from "date-fns";
 import {
@@ -147,7 +148,7 @@ function EventRow({ event }: { event: AuditEvent }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white">{event.event_type}</span>
+          <Link href={`/events/${event.id}`} className="text-sm font-medium text-white hover:text-sentinel-400">{event.event_type}</Link>
           {event.resource_type && (
             <span className="text-xs text-gray-500">→ {event.resource_type}</span>
           )}

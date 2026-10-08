@@ -74,6 +74,7 @@ apps/backend/media/
 # =============================================================================
 node_modules/
 apps/frontend/.next/
+apps/frontend/.next-dev/
 apps/frontend/out/
 apps/frontend/.turbo/
 *.tsbuildinfo

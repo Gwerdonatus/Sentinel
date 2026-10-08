@@ -65,13 +65,24 @@ host ports. PostgreSQL preloads `pg_stat_statements`. Nginx routes
 `/api/internal/` to Next.js so cookie-based login also works through
 `http://localhost`; Django's versioned API remains under `/api/v1/`.
 
-The current OpenTelemetry instrumentation still requires `pkg_resources`, so
-backend requirements constrain setuptools below 82, where that API was removed.
-See [setuptools documentation](https://setuptools.pypa.io/en/stable/deprecated/pkg_resources.html).
+OpenTelemetry 0.49 removes the legacy `pkg_resources` import and fixes context
+cleanup for tasks published without trace headers (for example, Beat tasks).
+The SDK/exporter versions are kept compatible with the instrumentation version.
 CI checks instrumented WSGI startup as well as migration consistency and Compose
-configuration. A future instrumentation upgrade should remove this constraint.
+configuration.
 
 Slack/email delivery requires explicit notification destinations. The local
 walkthrough verifies persisted in-app alerts; it does not send external messages.
 Production notification delivery and Kafka consumer-lag monitoring require the
 additional integrations documented in the infrastructure configuration.
+
+Next.js development output lives in a separate `.next-dev` volume so production
+checks do not corrupt hot-reload assets. PostCSS compiles Tailwind utilities for
+both development and production. Run frontend production checks in an isolated
+container with `docker compose run --rm --no-deps -e NODE_ENV=production
+-e NEXT_DIST_DIR=.next frontend npm run build`.
+
+The audit log, event detail, and alert detail pages support the walkthrough:
+open an alert, inspect its explanation, follow the triggering event, and return
+to the actor timeline. Nginx resolves Docker service names dynamically so a
+container recreation does not leave stale upstream addresses.

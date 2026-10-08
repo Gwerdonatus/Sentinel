@@ -234,10 +234,12 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NEXT_PUBLIC_APP_ENV: development
       NODE_ENV: development
+      NEXT_DIST_DIR: .next-dev
     volumes:
       - ./apps/frontend:/app
       - /app/node_modules  # Exclude node_modules from bind mount
-      - /app/.next          # Exclude build cache from bind mount
+      - /app/.next          # Exclude production build cache from bind mount
+      - /app/.next-dev      # Isolate hot-reload output from production checks
     ports:
       - "3000:3000"
     command: npm run dev
