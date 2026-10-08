@@ -150,7 +150,8 @@ class ComplianceReportService:
         total = events.count()
 
         by_actor_type = dict(
-            events.values("actor_type")
+            events.order_by()
+            .values("actor_type")
             .annotate(count=Count("id"))
             .values_list("actor_type", "count")
         )
