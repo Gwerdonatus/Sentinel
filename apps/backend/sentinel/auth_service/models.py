@@ -156,8 +156,8 @@ class SentinelUser(AbstractBaseUser, PermissionsMixin):
         db_table = "sentinel_users"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["email", "is_active"]),
-            models.Index(fields=["role", "is_active"]),
+            models.Index(fields=["email", "is_active"], name="idx_user_email_active"),
+            models.Index(fields=["role", "is_active"], name="idx_user_role_active"),
         ]
         verbose_name = "User"
         verbose_name_plural = "Users"

@@ -221,6 +221,10 @@ class AuditEvent(models.Model):
             models.Index(fields=["event_type", "created_at"], name="idx_audit_type_time"),
             models.Index(fields=["resource_type", "resource_id"], name="idx_audit_resource"),
             models.Index(fields=["request_id"], name="idx_audit_request_id"),
+            models.Index(fields=["actor_type", "created_at"], name="idx_audit_actor_type_time"),
+            models.Index(fields=["agent_name", "created_at"], name="idx_audit_agent_name_time"),
+            models.Index(fields=["risk_score", "created_at"], name="idx_audit_risk_score_time"),
+            models.Index(fields=["tenant_id", "created_at"], name="idx_audit_tenant_time"),
         ]
         verbose_name = "Audit Event"
         verbose_name_plural = "Audit Events"
