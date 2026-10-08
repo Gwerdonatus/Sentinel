@@ -1,202 +1,275 @@
 "use client";
-
-import { useRiskSummary, useAlerts } from "@/hooks/use-sentinel-data";
-import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { SEVERITY_COLORS, type AlertListItem } from "@/types/dashboard";
+import {
+  ArrowUpRight,
+  Bell,
+  Activity,
+  ScanEye,
+  RefreshCw,
+  ArrowRight,
+  Fingerprint,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import {
+  useRiskSummary,
+  useAlerts,
+  useAuditEvents,
+} from "@/hooks/use-sentinel-data";
+import { SEVERITY_COLORS } from "@/types/dashboard";
 
 export default function DashboardPage() {
-  const { data: summary, isLoading: summaryLoading } = useRiskSummary();
-  const { data: alertsPage, isLoading: alertsLoading } = useAlerts({ status: "open" });
-
+  const summaryQuery = useRiskSummary();
+  const alertsQuery = useAlerts({ status: "open" });
+  const eventsQuery = useAuditEvents();
+  const summary = summaryQuery.data;
+  const busy =
+    summaryQuery.isFetching || alertsQuery.isFetching || eventsQuery.isFetching;
+  function refresh() {
+    void summaryQuery.refetch();
+    void alertsQuery.refetch();
+    void eventsQuery.refetch();
+  }
+  const failed =
+    summaryQuery.isError || alertsQuery.isError || eventsQuery.isError;
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-white">Overview</h1>
-        <p className="mt-0.5 text-sm text-gray-400">
-          Real-time risk intelligence across all actors
-        </p>
+    <div className="overview-page">
+      <div className="overview-heading">
+        <div>
+          <div className="eyebrow">YOUR SECURITY PERSPECTIVE</div>
+          <h1>A clearer view.</h1>
+          <p>
+            Every actor. Every signal. Everything that needs your attention.
+          </p>
+        </div>
+        <button
+          onClick={refresh}
+          disabled={busy}
+          className="button button-white"
+        >
+          <RefreshCw size={15} className={busy ? "animate-spin" : ""} />
+          {busy ? "Updating…" : "Refresh"}
+        </button>
       </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Open Alerts"
-          value={summary?.open_alerts.total ?? "—"}
-          sub={`${summary?.open_alerts.critical ?? 0} critical`}
-          loading={summaryLoading}
-          accent="red"
-        />
-        <StatCard
-          label="Events (24h)"
-          value={summary?.last_24h.total_events ?? "—"}
-          sub={`${summary?.last_24h.ai_agent_events ?? 0} from AI agents`}
-          loading={summaryLoading}
-          accent="blue"
-        />
-        <StatCard
-          label="High-Risk Events"
-          value={summary?.last_24h.high_risk_events ?? "—"}
-          sub="Score ≥ 50 in last 24h"
-          loading={summaryLoading}
-          accent="orange"
-        />
-        <StatCard
-          label="New Alerts (24h)"
-          value={summary?.last_24h.new_alerts ?? "—"}
-          sub="Across all rules"
-          loading={summaryLoading}
-          accent="purple"
-        />
+      {failed && (
+        <div role="alert" className="error-banner">
+          Some workspace data could not be loaded. Refresh to try again.
+        </div>
+      )}
+      <section className="attention-banner">
+        <div className="attention-icon">
+          <ScanEye size={26} strokeWidth={1.5} />
+        </div>
+        <div>
+          <h2>
+            {summary
+              ? summary.open_alerts.total
+                ? `${summary.open_alerts.total} signals need your attention.`
+                : "Your alert inbox is clear."
+              : "Reading your security signals…"}
+          </h2>
+          <p>
+            {summary
+              ? `${summary.open_alerts.high} high-severity alerts · ${summary.open_alerts.critical} critical alerts`
+              : "Fetching the latest risk intelligence"}
+          </p>
+        </div>
+        <Link href="/alerts" className="button button-dark">
+          Review alerts <ArrowRight size={16} />
+        </Link>
+      </section>
+      <div className="metric-grid">
+        {[
+          {
+            label: "Open alerts",
+            value: summary?.open_alerts.total,
+            sub: "Awaiting investigation",
+            icon: Bell,
+            href: "/alerts",
+            color: "coral",
+          },
+          {
+            label: "Events observed",
+            value: summary?.last_24h.total_events,
+            sub: "In the last 24 hours",
+            icon: Activity,
+            href: "/events",
+            color: "blue",
+          },
+          {
+            label: "High-risk events",
+            value: summary?.last_24h.high_risk_events,
+            sub: "Risk score of 50 or above · 24h",
+            icon: ScanEye,
+            href: "/events",
+            color: "amber",
+          },
+          {
+            label: "AI agent activity",
+            value: summary?.last_24h.ai_agent_events,
+            sub: "Attributed events · last 24h",
+            icon: Fingerprint,
+            href: "/ai-agents",
+            color: "violet",
+          },
+        ].map(({ icon: Icon, ...m }) => (
+          <Link
+            href={m.href}
+            className={`metric-card ${m.color}`}
+            key={m.label}
+          >
+            <div>
+              <span>{m.label}</span>
+              <Icon size={18} strokeWidth={1.5} />
+            </div>
+            <strong>{m.value ?? "—"}</strong>
+            <p>
+              {m.sub}
+              <ArrowUpRight size={14} />
+            </p>
+          </Link>
+        ))}
       </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Open alerts */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50">
-          <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
-            <h2 className="text-sm font-semibold text-white">Open Alerts</h2>
-            <Link href="/alerts" className="text-xs text-sentinel-400 hover:text-sentinel-300">
-              View all →
+      <div className="overview-grid">
+        <section className="panel priority-panel">
+          <div className="panel-heading">
+            <div>
+              <div className="eyebrow">PRIORITY INBOX</div>
+              <h2>Worth a closer look.</h2>
+            </div>
+            <Link href="/alerts">
+              View all <ArrowUpRight size={15} />
             </Link>
           </div>
-          <div className="divide-y divide-gray-800/50">
-            {alertsLoading ? (
-              <LoadingRows count={4} />
-            ) : alertsPage?.results.length === 0 ? (
-              <EmptyState message="No open alerts" />
-            ) : (
-              alertsPage?.results.slice(0, 6).map((alert) => (
-                <AlertRow key={alert.id} alert={alert} />
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Top risky AI agents */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50">
-          <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
-            <h2 className="text-sm font-semibold text-white">Top Risky AI Agents (24h)</h2>
-            <Link href="/ai-agents" className="text-xs text-sentinel-400 hover:text-sentinel-300">
-              View all →
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-800/50">
-            {summaryLoading ? (
-              <LoadingRows count={4} />
-            ) : !summary?.top_risky_ai_agents.length ? (
-              <EmptyState message="No AI agent anomalies detected" />
-            ) : (
-              summary.top_risky_ai_agents.map((agent) => (
-                <div key={agent.agent_name} className="flex items-center justify-between px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base">🤖</span>
-                    <span className="text-sm text-white">{agent.agent_name}</span>
-                  </div>
-                  <span className="rounded-full bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-400">
-                    {agent.event_count} events
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Alert severity breakdown */}
-      {summary && (
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-white">Open Alert Severity Breakdown</h2>
-          <div className="grid grid-cols-4 gap-3">
-            {(["critical", "high", "medium", "low"] as const).map((sev) => (
-              <div
-                key={sev}
-                className={`rounded-lg border px-4 py-3 text-center ${SEVERITY_COLORS[sev]}`}
+          {alertsQuery.isLoading ? (
+            <p className="panel-empty" role="status">
+              Loading alerts…
+            </p>
+          ) : alertsQuery.data?.results.length ? (
+            alertsQuery.data.results.slice(0, 4).map((a) => (
+              <Link
+                href={`/alerts/${a.id}`}
+                className="priority-row"
+                key={a.id}
               >
-                <div className="text-2xl font-bold tabular">{summary.open_alerts[sev]}</div>
-                <div className="mt-0.5 text-xs capitalize opacity-80">{sev}</div>
+                <span className="alert-glyph">
+                  <Bell size={18} />
+                </span>
+                <div>
+                  <span
+                    className={`severity-pill ${SEVERITY_COLORS[a.severity]}`}
+                  >
+                    {a.severity}
+                  </span>
+                  <h3>{a.rule_name}</h3>
+                  <p>
+                    {a.agent_name || a.actor_email || a.actor_type}{" "}
+                    <span>·</span>{" "}
+                    {formatDistanceToNow(new Date(a.created_at), {
+                      addSuffix: true,
+                    })}
+                  </p>
+                </div>
+                <ArrowUpRight className="row-arrow" size={17} />
+              </Link>
+            ))
+          ) : (
+            <p className="panel-empty">
+              {alertsQuery.isError
+                ? "Alerts unavailable"
+                : "No open alerts. You’re up to date."}
+            </p>
+          )}
+        </section>
+        <section className="panel severity-panel">
+          <div className="panel-heading">
+            <div>
+              <div className="eyebrow">OPEN ALERTS</div>
+              <h2>The risk picture.</h2>
+            </div>
+            <span className="period-label">Current</span>
+          </div>
+          <div className="severity-summary">
+            <strong>{summary?.open_alerts.total ?? "—"}</strong>
+            <span>signals to investigate</span>
+          </div>
+          <div className="severity-list">
+            {(["critical", "high", "medium", "low"] as const).map((s) => (
+              <div key={s}>
+                <span>
+                  <i className={`severity-dot ${s}`} />
+                  {s}
+                </span>
+                <strong>{summary?.open_alerts[s] ?? "—"}</strong>
               </div>
             ))}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =============================================================================
-// Sub-components
-// =============================================================================
-
-function StatCard({
-  label, value, sub, loading, accent,
-}: {
-  label: string;
-  value: number | string;
-  sub: string;
-  loading: boolean;
-  accent: "red" | "blue" | "orange" | "purple";
-}) {
-  const accentClasses = {
-    red: "text-red-400",
-    blue: "text-sentinel-400",
-    orange: "text-orange-400",
-    purple: "text-purple-400",
-  };
-
-  return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
-      <p className="text-xs text-gray-500">{label}</p>
-      {loading ? (
-        <div className="mt-1 h-8 w-16 animate-pulse rounded bg-gray-800" />
-      ) : (
-        <p className={`mt-1 text-3xl font-bold tabular ${accentClasses[accent]}`}>{value}</p>
-      )}
-      <p className="mt-1 text-xs text-gray-600">{sub}</p>
-    </div>
-  );
-}
-
-function AlertRow({ alert }: { alert: AlertListItem }) {
-  return (
-    <Link href={`/alerts/${alert.id}`} className="block px-5 py-3 transition-colors hover:bg-gray-800/30">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`rounded-full border px-1.5 py-0.5 text-xs ${SEVERITY_COLORS[alert.severity]}`}>
-              {alert.severity}
-            </span>
-            {alert.agent_name && (
-              <span className="text-xs text-gray-500">🤖 {alert.agent_name}</span>
-            )}
-          </div>
-          <p className="mt-1 truncate text-sm text-white">{alert.rule_name}</p>
-          <p className="text-xs text-gray-500">
-            {alert.actor_email || alert.actor_type}
-          </p>
-        </div>
-        <span className="shrink-0 text-xs text-gray-600">
-          {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
-        </span>
+          <Link href="/alerts" className="panel-bottom-link">
+            Open alert inbox <ArrowRight size={16} />
+          </Link>
+        </section>
       </div>
-    </Link>
-  );
-}
-
-function LoadingRows({ count }: { count: number }) {
-  return (
-    <>
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="px-5 py-3">
-          <div className="h-4 w-2/3 animate-pulse rounded bg-gray-800" />
-          <div className="mt-1.5 h-3 w-1/3 animate-pulse rounded bg-gray-800/60" />
+      <section className="panel recent-panel">
+        <div className="panel-heading">
+          <div>
+            <div className="eyebrow">AUDIT TRAIL</div>
+            <h2>Recent activity.</h2>
+          </div>
+          <Link href="/events">
+            Explore events <ArrowUpRight size={15} />
+          </Link>
         </div>
-      ))}
-    </>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="px-5 py-8 text-center text-sm text-gray-600">{message}</div>
+        <div className="overflow-x-auto">
+          <table className="activity-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Actor</th>
+                <th>Resource</th>
+                <th>Risk score</th>
+                <th>Recorded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eventsQuery.data?.results.slice(0, 5).map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    <Link href={`/events/${e.id}`}>
+                      {e.event_type.replaceAll("_", " ")}
+                      <ArrowUpRight size={13} />
+                    </Link>
+                    {e.metadata.demo_data === true && (
+                      <small>Synthetic demo</small>
+                    )}
+                  </td>
+                  <td>{e.agent_name || e.actor_email || e.actor_type}</td>
+                  <td>{e.resource_type || "—"}</td>
+                  <td>
+                    <span
+                      className={`score-chip ${(e.risk_score ?? 0) >= 50 ? "elevated" : ""}`}
+                    >
+                      {e.risk_score ?? "Pending"}
+                    </span>
+                  </td>
+                  <td>
+                    {formatDistanceToNow(new Date(e.created_at), {
+                      addSuffix: true,
+                    })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!eventsQuery.data?.results.length && (
+          <p className="panel-empty">
+            {eventsQuery.isLoading
+              ? "Loading recent activity…"
+              : eventsQuery.isError
+                ? "Activity unavailable"
+                : "No events recorded yet."}
+          </p>
+        )}
+      </section>
+    </div>
   );
 }

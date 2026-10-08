@@ -86,3 +86,15 @@ The audit log, event detail, and alert detail pages support the walkthrough:
 open an alert, inspect its explanation, follow the triggering event, and return
 to the actor timeline. Nginx resolves Docker service names dynamically so a
 container recreation does not leave stale upstream addresses.
+
+## Isolated backend regression checks
+
+Run the suite in test mode so Celery uses its in-memory broker and regression events never reach the running demo worker or Kafka topic. Development dependencies are installed only in the disposable container:
+
+```sh
+docker compose run --rm --no-deps --user root \
+  -e ENVIRONMENT=test -e KAFKA_ENABLED=False -e OTEL_ENABLED=False \
+  backend sh -c 'pip install -r requirements-dev.txt && pytest --cov=sentinel --cov-report=term-missing'
+```
+
+The Sentinel 2 homepage is at `/`, the integration guide at `/developers`, and the scoped frontend/backend status view at `/status`. See [the interface conventions](design-system.md).

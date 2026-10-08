@@ -60,9 +60,9 @@ export const RISK_LEVEL_BG: Record<RiskLevel, string> = {
 };
 
 export const ACTOR_TYPE_ICONS: Record<ActorType, string> = {
-  HUMAN: "👤",
-  SERVICE: "⚙️",
-  AI_AGENT: "🤖",
+  HUMAN: "H",
+  SERVICE: "S",
+  AI_AGENT: "AI",
 };
 
 export interface AuditEvent {
@@ -126,7 +126,11 @@ export interface AlertDetail extends AlertListItem {
   acknowledged_at: string | null;
   resolved_at: string | null;
   resolution_note: string;
-  notifications_sent: Array<{ channel: string; outcome: string; timestamp: string }>;
+  notifications_sent: Array<{
+    channel: string;
+    outcome: string;
+    timestamp: string;
+  }>;
   updated_at: string;
 }
 
@@ -216,7 +220,8 @@ export interface APIKeyCreated extends APIKeyListItem {
 
 export type ReportType = "pci_dss" | "soc2" | "custom";
 export type ReportFormat = "pdf" | "csv" | "json";
-export type ReportStatus = "pending" | "generating" | "ready" | "failed" | "expired";
+export type ReportStatus =
+  "pending" | "generating" | "ready" | "failed" | "expired";
 
 export interface ComplianceReport {
   id: string;
@@ -254,8 +259,11 @@ export function getRiskLevel(score: number | null): RiskLevel {
   return "critical";
 }
 
-export function formatActorLabel(event: Pick<AuditEvent, "actor_type" | "actor_email" | "agent_name">): string {
-  if (event.actor_type === "AI_AGENT" && event.agent_name) return `🤖 ${event.agent_name}`;
-  if (event.actor_type === "SERVICE") return `⚙️ Service`;
-  return `👤 ${event.actor_email || "Unknown"}`;
+export function formatActorLabel(
+  event: Pick<AuditEvent, "actor_type" | "actor_email" | "agent_name">,
+): string {
+  if (event.actor_type === "AI_AGENT" && event.agent_name)
+    return `${event.agent_name} · AI agent`;
+  if (event.actor_type === "SERVICE") return `Service`;
+  return `${event.actor_email || "Unknown"}`;
 }

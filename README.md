@@ -207,7 +207,7 @@ sentinel/
 
 ```bash
 # Run backend tests
-docker compose exec backend pytest --cov=sentinel --cov-report=term-missing
+docker compose run --rm --no-deps --user root -e ENVIRONMENT=test -e KAFKA_ENABLED=False -e OTEL_ENABLED=False backend sh -c 'pip install -r requirements-dev.txt && pytest --cov=sentinel --cov-report=term-missing'
 
 # Run frontend dev server
 cd apps/frontend && npm run dev
