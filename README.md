@@ -117,7 +117,7 @@ PostgreSQL holds the durable record and publication intent. Celery handles publi
 
 CI runs regression tests and backend/frontend checks when relevant paths change. Documentation-only jobs can be skipped; a green documentation run is not a fresh full-suite execution. Historical full-suite evidence: [run for 650e581](https://github.com/Gwerdonatus/Sentinel/actions/runs/37786851776).
 
-No ingestion p95, throughput benchmark, production deployment or third-party security audit is claimed.
+See [local verification evidence and caveats](docs/verification.md). No ingestion p95, throughput benchmark, production deployment or third-party security audit is claimed.
 
 ## Run locally
 
@@ -181,4 +181,3 @@ docker compose run --rm --no-deps -e NODE_ENV=production \
 | [`docs`](docs) | Design decisions, architecture, security and runbooks |
 
 [Architecture](docs/architecture.md) · [ADR index](docs/adr/README.md) · [Security policy](docs/security-policy.md) · [Contributing](docs/contributing.md) · [Roadmap](docs/roadmap.md)
-
