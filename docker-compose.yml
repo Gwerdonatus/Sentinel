@@ -39,6 +39,7 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: postgres -c shared_preload_libraries=pg_stat_statements
     environment:
       POSTGRES_DB: sentinel_db
       POSTGRES_USER: sentinel
@@ -113,7 +114,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live/"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live/')",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -166,7 +173,6 @@ services:
     command: >
       celery -A config.celery beat
       --loglevel=info
-      --scheduler django_celery_beat.schedulers:DatabaseScheduler
     depends_on:
       - worker
     networks:
