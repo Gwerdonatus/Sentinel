@@ -346,3 +346,31 @@ class TestAuditImmutabilityAtRepository:
         repo = AuditEventRepository()
         with pytest.raises(NotImplementedError, match="immutable"):
             repo.delete()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("filters", [{"actor_type": "AI_AGENT"}, {"agent_name": "filter-agent"}])
+def test_audit_list_filters_actor_identity(
+    client: APIClient, auditor_user: object, filters: dict[str, str]
+) -> None:
+    from sentinel.audit.services import AuditEventService
+
+    service = AuditEventService()
+    service.record(event_type="ADMIN_ACTION", actor_id=str(uuid.uuid4()), actor_type="HUMAN")
+    agent = service.record(
+        event_type="ADMIN_ACTION",
+        actor_id=str(uuid.uuid4()),
+        actor_type="AI_AGENT",
+        agent_name="filter-agent",
+    )
+    client.force_authenticate(auditor_user)
+    response = client.get("/api/v1/events/", filters)
+    assert response.status_code == status.HTTP_200_OK
+    assert [row["id"] for row in response.data["results"]] == [str(agent.id)]
+
+
+@pytest.mark.django_db
+def test_audit_list_rejects_unknown_actor_type(client: APIClient, auditor_user: object) -> None:
+    client.force_authenticate(auditor_user)
+    response = client.get("/api/v1/events/", {"actor_type": "UNKNOWN"})
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

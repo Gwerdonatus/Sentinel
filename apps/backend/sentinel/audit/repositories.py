@@ -83,6 +83,8 @@ class AuditEventRepository:
         self,
         *,
         actor_id: uuid.UUID | None = None,
+        actor_type: str | None = None,
+        agent_name: str | None = None,
         event_type: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
@@ -99,6 +101,10 @@ class AuditEventRepository:
 
         if actor_id is not None:
             qs = qs.filter(actor_id=actor_id)
+        if actor_type is not None:
+            qs = qs.filter(actor_type=actor_type)
+        if agent_name is not None:
+            qs = qs.filter(agent_name=agent_name)
         if event_type is not None:
             qs = qs.filter(event_type=event_type)
         if resource_type is not None:

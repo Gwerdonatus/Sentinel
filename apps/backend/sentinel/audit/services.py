@@ -120,6 +120,8 @@ class AuditEventService:
         self,
         *,
         actor_id: uuid.UUID | None = None,
+        actor_type: str | None = None,
+        agent_name: str | None = None,
         event_type: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
@@ -129,6 +131,8 @@ class AuditEventService:
     ) -> QuerySet[AuditEvent]:
         return self._repo.list(
             actor_id=actor_id,
+            actor_type=actor_type,
+            agent_name=agent_name,
             event_type=event_type,
             resource_type=resource_type,
             resource_id=resource_id,

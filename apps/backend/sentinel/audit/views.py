@@ -124,6 +124,8 @@ class AuditEventListView(APIView):
         service = AuditEventService()
         queryset = service.list(
             actor_id=filters.get("actor_id"),
+            actor_type=filters.get("actor_type"),
+            agent_name=filters.get("agent_name"),
             event_type=filters.get("event_type"),
             resource_type=filters.get("resource_type"),
             resource_id=filters.get("resource_id"),
