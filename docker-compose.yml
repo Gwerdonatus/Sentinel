@@ -352,6 +352,7 @@ services:
     networks:
       - sentinel_net
 
+volumes:
   zookeeper_data:
     driver: local
   zookeeper_logs:
