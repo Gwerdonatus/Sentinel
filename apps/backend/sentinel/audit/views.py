@@ -15,12 +15,15 @@ from typing import Any
 
 import structlog
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from sentinel.audit.models import AuditEventType
+from sentinel.api_keys.models import ActorType as APIKeyActorType
+from sentinel.api_keys.models import APIKey
+from sentinel.audit.models import ActorType, AuditEventType
 from sentinel.audit.serializers import (
     AuditEventFilterSerializer,
     AuditEventSerializer,
@@ -53,13 +56,40 @@ class AuditEventIngestView(APIView):
                 f"Unknown event_type. Must be one of: {', '.join(AuditEventType.values)}"
             )
 
+        api_key = request.auth if isinstance(request.auth, APIKey) else None
+        if api_key and not api_key.has_scope("events:write"):
+            raise PermissionDenied("This API key requires the events:write scope.")
+
+        if api_key:
+            actor_type = (
+                ActorType.HUMAN
+                if api_key.actor_type == APIKeyActorType.HUMAN_API
+                else api_key.actor_type
+            )
+            actor_id = str(api_key.id)
+            actor_email = ""
+            actor_role = "API_KEY"
+            agent_name = api_key.agent_name or api_key.name
+            tenant_id = api_key.tenant_id
+        else:
+            user = request.user
+            actor_type = ActorType.HUMAN
+            actor_id = str(user.id)
+            actor_email = getattr(user, "email", "")
+            actor_role = getattr(user, "role", "")
+            agent_name = ""
+            tenant_id = getattr(user, "tenant_id", None)
+
         service = AuditEventService()
         event = service.record(
             event_type=event_type,
-            actor_id=request.data.get("actor_id"),
-            actor_email=request.data.get("actor_email", ""),
-            actor_role=request.data.get("actor_role", ""),
-            actor_ip=request.data.get("actor_ip", request.META.get("REMOTE_ADDR", "")),
+            actor_id=actor_id,
+            actor_type=actor_type,
+            actor_email=actor_email,
+            actor_role=actor_role,
+            actor_ip=request.META.get("REMOTE_ADDR", ""),
+            agent_name=agent_name,
+            tenant_id=tenant_id,
             resource_type=request.data.get("resource_type", ""),
             resource_id=request.data.get("resource_id", ""),
             metadata=request.data.get("metadata", {}),
@@ -85,6 +115,8 @@ class AuditEventListView(APIView):
     permission_classes = [IsAuthenticated, IsAuditorOrAbove]
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        if isinstance(request.auth, APIKey) and not request.auth.has_scope("events:read"):
+            raise PermissionDenied("This API key requires the events:read scope.")
         filter_serializer = AuditEventFilterSerializer(data=request.query_params)
         filter_serializer.is_valid(raise_exception=True)
         filters = filter_serializer.validated_data
@@ -117,6 +149,8 @@ class AuditEventDetailView(APIView):
     permission_classes = [IsAuthenticated, IsAuditorOrAbove]
 
     def get(self, request: Request, event_id: str, *args: Any, **kwargs: Any) -> Response:
+        if isinstance(request.auth, APIKey) and not request.auth.has_scope("events:read"):
+            raise PermissionDenied("This API key requires the events:read scope.")
         try:
             parsed_id = uuid.UUID(event_id)
         except ValueError:
@@ -140,6 +174,8 @@ class AuditEventVerifyView(APIView):
     permission_classes = [IsAuthenticated, IsAuditorOrAbove]
 
     def get(self, request: Request, event_id: str, *args: Any, **kwargs: Any) -> Response:
+        if isinstance(request.auth, APIKey) and not request.auth.has_scope("events:read"):
+            raise PermissionDenied("This API key requires the events:read scope.")
         try:
             parsed_id = uuid.UUID(event_id)
         except ValueError:

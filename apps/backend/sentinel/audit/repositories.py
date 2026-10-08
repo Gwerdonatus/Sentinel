@@ -34,29 +34,41 @@ class AuditEventRepository:
 
     def create(
         self,
+        event_id: uuid.UUID,
+        created_at: datetime,
+        tenant_id: uuid.UUID | None,
         event_type: str,
         actor_id: str | None,
+        actor_type: str,
         actor_email: str,
         actor_role: str,
         actor_ip: str,
+        agent_name: str,
         resource_type: str,
         resource_id: str,
         metadata: dict[str, object],
         request_id: str,
         signature: str,
+        signature_version: int,
     ) -> AuditEvent:
         """Create and persist a new audit event. The only write operation."""
         return AuditEvent.objects.create(
+            id=event_id,
+            created_at=created_at,
+            tenant_id=tenant_id,
             event_type=event_type,
             actor_id=uuid.UUID(actor_id) if actor_id else None,
+            actor_type=actor_type,
             actor_email=actor_email,
             actor_role=actor_role,
             actor_ip=actor_ip,
+            agent_name=agent_name,
             resource_type=resource_type,
             resource_id=resource_id,
             metadata=metadata,
             request_id=request_id,
             signature=signature,
+            signature_version=signature_version,
         )
 
     def get_by_id(self, event_id: uuid.UUID) -> AuditEvent:

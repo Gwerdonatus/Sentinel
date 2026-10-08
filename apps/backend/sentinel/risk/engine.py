@@ -7,7 +7,7 @@ a composite risk score (0-100) with full signal breakdown.
 SCORING ALGORITHM:
     1. Run all applicable signals for the actor type
     2. Take the maximum signal score (not average — one strong signal is enough)
-    3. Add partial contributions from other fired signals (10% each, max 15 points)
+    3. Add 5 points for each additional fired signal (max 15 points)
     4. Clamp to 0-100
 
     This means: one critical signal (85) + two moderate signals (40, 40) = 85 + 8 = 93.

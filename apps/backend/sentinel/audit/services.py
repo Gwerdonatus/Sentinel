@@ -12,10 +12,11 @@ from datetime import datetime
 
 import structlog
 from django.conf import settings
+from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from sentinel.audit.models import AuditEvent
+from sentinel.audit.models import ActorType, AuditEvent, AuditOutbox
 from sentinel.audit.repositories import AuditEventRepository
 from sentinel.audit.signing import compute_event_signature
 
@@ -32,13 +33,17 @@ class AuditEventService:
         self,
         event_type: str,
         actor_id: str | None = None,
+        actor_type: str = ActorType.HUMAN,
         actor_email: str = "",
         actor_role: str = "",
         actor_ip: str = "",
+        agent_name: str = "",
+        tenant_id: uuid.UUID | None = None,
         resource_type: str = "",
         resource_id: str = "",
         metadata: dict[str, object] | None = None,
         request_id: str = "",
+        created_at: datetime | None = None,
     ) -> AuditEvent:
         """
         Record an immutable audit event.
@@ -52,8 +57,9 @@ class AuditEventService:
 
         # Generate ID upfront so it's included in the signature
         event_id = uuid.uuid4()
-        created_at = timezone.now()
+        created_at = created_at or timezone.now()
 
+        signature_version = 2
         signature = compute_event_signature(
             event_id=event_id,
             event_type=event_type,
@@ -62,31 +68,37 @@ class AuditEventService:
             created_at=created_at,
             metadata=metadata,
             secret_key=settings.SECRET_KEY,
-        )
-
-        event = self._repo.create(
-            event_type=event_type,
-            actor_id=actor_id,
-            actor_email=actor_email,
+            version=signature_version,
+            tenant_id=str(tenant_id) if tenant_id else None,
+            actor_type=actor_type,
             actor_role=actor_role,
             actor_ip=actor_ip,
+            agent_name=agent_name,
             resource_type=resource_type,
             resource_id=resource_id,
-            metadata=metadata,
             request_id=request_id,
-            signature=signature,
         )
 
-        # Override auto-generated ID and created_at with our pre-computed values
-        # so the signature matches. We do this via direct field set + update.
-        AuditEvent.objects.filter(pk=event.pk).update(
-            id=event_id,
-            # created_at is auto_now_add — we can't set it here, but the
-            # signature is still valid because we sign with the actual DB value
-            # which is set atomically with the INSERT. In production use
-            # a custom auto_now_add alternative if strict signature matching is needed.
-        )
-        event.id = event_id
+        with transaction.atomic():
+            event = self._repo.create(
+                event_id=event_id,
+                created_at=created_at,
+                tenant_id=tenant_id,
+                event_type=event_type,
+                actor_id=actor_id,
+                actor_type=actor_type,
+                actor_email=actor_email,
+                actor_role=actor_role,
+                actor_ip=actor_ip,
+                agent_name=agent_name,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                metadata=metadata,
+                request_id=request_id,
+                signature=signature,
+                signature_version=signature_version,
+            )
+            AuditOutbox.objects.create(audit_event=event)
 
         logger.info(
             "audit_event_recorded",
@@ -141,4 +153,13 @@ class AuditEventService:
             metadata=event.metadata,
             stored_signature=event.signature,
             secret_key=settings.SECRET_KEY,
+            version=event.signature_version,
+            tenant_id=str(event.tenant_id) if event.tenant_id else None,
+            actor_type=event.actor_type,
+            actor_role=event.actor_role,
+            actor_ip=str(event.actor_ip or ""),
+            agent_name=event.agent_name,
+            resource_type=event.resource_type,
+            resource_id=event.resource_id,
+            request_id=event.request_id,
         )

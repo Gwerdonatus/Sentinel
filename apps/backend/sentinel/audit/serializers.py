@@ -14,16 +14,21 @@ class AuditEventSerializer(serializers.ModelSerializer):
         model = AuditEvent
         fields = [
             "id",
+            "tenant_id",
             "event_type",
             "actor_id",
+            "actor_type",
             "actor_email",
             "actor_role",
             "actor_ip",
+            "agent_name",
             "resource_type",
             "resource_id",
             "metadata",
             "request_id",
             "signature",
+            "signature_version",
+            "risk_score",
             "created_at",
         ]
         read_only_fields = fields

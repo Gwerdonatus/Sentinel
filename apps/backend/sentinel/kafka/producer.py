@@ -17,9 +17,8 @@ WHY KAFKA AFTER POSTGRES (not instead of):
     events are still recorded and the backlog can be replayed once it
     recovers. If Postgres is down, nothing is lost to Kafka either.
 
-    This is the "transactional outbox" pattern without a dedicated
-    outbox table — acceptable at Phase 5 scale. A true transactional
-    outbox (Debezium CDC) would be Phase 6+.
+    AuditEventService commits a dedicated outbox row in the same database
+    transaction. A retryable publisher drains that outbox after commit.
 
 SERIALIZATION:
     Events are serialized to JSON. The schema is versioned via a
@@ -86,42 +85,42 @@ def get_producer() -> "KafkaProducer":  # type: ignore[name-defined]
     return _producer  # type: ignore[return-value]
 
 
-def publish_audit_event(event: "AuditEvent") -> None:
+def publish_audit_event(event: "AuditEvent", *, timeout_seconds: float = 10.0) -> None:
     """
     Publish a recorded AuditEvent to its tenant's Kafka topic.
 
-    Called from record_audit_event_task after successful DB write.
-    Failures are logged but do not raise — Kafka unavailability must
-    not prevent audit events from being recorded in PostgreSQL.
+    Called by the outbox publisher after the database transaction commits.
+    Raises on failure so the outbox entry remains pending for retry.
     """
-    try:
-        producer = get_producer()
-        topic = _get_topic_for_event(event)
-        payload = _serialize_audit_event(event)
+    producer = get_producer()
+    if isinstance(producer, _NoOpProducer):
+        raise RuntimeError("Kafka producer is unavailable")
 
-        producer.produce(
-            topic=topic,
-            key=str(event.id).encode(),
-            value=json.dumps(payload).encode(),
-            callback=_delivery_callback,
-        )
-        producer.poll(0)  # Trigger delivery callbacks without blocking
+    topic = _get_topic_for_event(event)
+    payload = _serialize_audit_event(event)
+    delivery_errors: list[str] = []
 
-        logger.debug(
-            "kafka_event_published",
-            event_id=str(event.id),
-            event_type=event.event_type,
-            topic=topic,
-        )
+    def delivery_callback(err: object, msg: object) -> None:
+        if err:
+            delivery_errors.append(str(err))
 
-    except Exception as exc:
-        # Never raise — Kafka failure must not break the audit pipeline
-        logger.error(
-            "kafka_publish_failed",
-            event_id=str(event.id),
-            event_type=event.event_type,
-            error=str(exc),
-        )
+    producer.produce(
+        topic=topic,
+        key=str(event.id).encode(),
+        value=json.dumps(payload).encode(),
+        callback=delivery_callback,
+    )
+    remaining = producer.flush(timeout_seconds)
+    if remaining or delivery_errors:
+        error = delivery_errors[0] if delivery_errors else f"{remaining} message(s) undelivered"
+        raise RuntimeError(f"Kafka audit publication failed: {error}")
+
+    logger.info(
+        "kafka_event_published",
+        event_id=str(event.id),
+        event_type=event.event_type,
+        topic=topic,
+    )
 
 
 def publish_risk_score(

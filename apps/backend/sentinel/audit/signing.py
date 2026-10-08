@@ -1,7 +1,7 @@
 """
 Audit Event Signing.
 
-Produces and verifies HMAC-SHA256 signatures for audit events.
+Produces and verifies versioned HMAC-SHA256 signatures for audit events.
 
 The signature proves that the record has not been tampered with after
 creation. Any modification to the signed fields (event_type, actor_id,
@@ -33,27 +33,59 @@ def compute_event_signature(
     created_at: datetime,
     metadata: dict[str, object],
     secret_key: str,
+    *,
+    version: int = 1,
+    tenant_id: str | None = None,
+    actor_type: str = "HUMAN",
+    actor_role: str = "",
+    actor_ip: str = "",
+    agent_name: str = "",
+    resource_type: str = "",
+    resource_id: str = "",
+    request_id: str = "",
 ) -> str:
     """
     Compute an HMAC-SHA256 signature for an audit event.
 
     Returns the hex digest (64 characters).
     """
+    if version not in (1, 2):
+        raise ValueError(f"Unsupported audit signature version: {version}")
+
     # Stable JSON serialization of the payload
     payload_json = json.dumps(metadata, sort_keys=True, default=str)
     payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
 
-    # Construct the message to sign — pipe-delimited for unambiguous parsing
-    message = "|".join(
-        [
-            str(event_id),
-            event_type,
-            str(actor_id) if actor_id else "",
-            actor_email,
-            created_at.isoformat(),
-            payload_hash,
-        ]
-    )
+    if version == 1:
+        message = "|".join(
+            [
+                str(event_id),
+                event_type,
+                str(actor_id) if actor_id else "",
+                actor_email,
+                created_at.isoformat(),
+                payload_hash,
+            ]
+        )
+    else:
+        canonical_event = {
+            "version": 2,
+            "id": str(event_id),
+            "tenant_id": str(tenant_id) if tenant_id else "",
+            "event_type": event_type,
+            "actor_id": str(actor_id) if actor_id else "",
+            "actor_type": actor_type,
+            "actor_email": actor_email,
+            "actor_role": actor_role,
+            "actor_ip": actor_ip,
+            "agent_name": agent_name,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "request_id": request_id,
+            "created_at": created_at.isoformat(),
+            "payload_sha256": payload_hash,
+        }
+        message = json.dumps(canonical_event, sort_keys=True, separators=(",", ":"))
 
     return hmac.new(
         key=secret_key.encode(),
@@ -71,6 +103,16 @@ def verify_event_signature(
     metadata: dict[str, object],
     stored_signature: str,
     secret_key: str,
+    *,
+    version: int = 1,
+    tenant_id: str | None = None,
+    actor_type: str = "HUMAN",
+    actor_role: str = "",
+    actor_ip: str = "",
+    agent_name: str = "",
+    resource_type: str = "",
+    resource_id: str = "",
+    request_id: str = "",
 ) -> bool:
     """
     Verify a stored signature against recomputed values.
@@ -89,5 +131,14 @@ def verify_event_signature(
         created_at=created_at,
         metadata=metadata,
         secret_key=secret_key,
+        version=version,
+        tenant_id=tenant_id,
+        actor_type=actor_type,
+        actor_role=actor_role,
+        actor_ip=actor_ip,
+        agent_name=agent_name,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        request_id=request_id,
     )
     return hmac.compare_digest(expected, stored_signature)

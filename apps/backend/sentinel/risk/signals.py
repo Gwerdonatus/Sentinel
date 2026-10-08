@@ -61,15 +61,12 @@ def score_impossible_travel(
     lookback_minutes: int = 30,
 ) -> SignalResult:
     """
-    Detect impossible travel: same actor, two distant IPs within a short window.
+    Detect a rapid network change: the same actor appears on a different /16
+    network within a short window.
 
     Compares the current event's IP against recent events from the same actor.
-    If the geographic distance implies faster-than-possible travel, score high.
-
-    Implementation note: Full geolocation lookup is expensive and requires an
-    external service. This implementation uses IP subnet similarity as a fast
-    proxy — same /16 subnet = probably same region. Different /16 = possible travel.
-    Phase 4 integrates a proper geo-IP service.
+    This is deliberately a coarse heuristic, not geographic proof of impossible
+    travel. A production detector should use trusted proxy handling and GeoIP.
     """
     from sentinel.audit.models import AuditEvent as AuditEventModel
 
@@ -100,8 +97,8 @@ def score_impossible_travel(
                     score=85,
                     fired=True,
                     reason=(
-                        f"Actor seen at {event.actor_ip} within {lookback_minutes}m "
-                        f"of different subnet {recent_ip}"
+                        f"Actor seen on network {event.actor_ip} within {lookback_minutes}m "
+                        f"of different network {recent_ip}"
                     ),
                 )
     except Exception as exc:
@@ -221,7 +218,8 @@ def score_ai_data_volume(
 
     This is the primary AI-specific exfiltration signal.
     An AI agent that suddenly accesses 10x its normal data volume
-    is a high-priority alert — possible prompt injection or misconfiguration.
+    is a high-priority alert. It is behavioural evidence of possible compromise,
+    unsafe instructions, or misconfiguration; it does not identify the root cause.
     """
     from sentinel.audit.models import AuditEvent as AuditEventModel
 

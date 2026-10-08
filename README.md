@@ -3,7 +3,7 @@
 > **The Trust Layer for AI-Powered Financial Systems**
 
 [![CI](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Gwerdonatus/Sentinel/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-69%25-brightgreen)](https://github.com/Gwerdonatus/Sentinel)
+[![Coverage](https://img.shields.io/badge/coverage-68%25-brightgreen)](https://github.com/Gwerdonatus/Sentinel)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](https://python.org)
 [![Django 5.x](https://img.shields.io/badge/django-5.x-green)](https://djangoproject.com)
@@ -38,7 +38,7 @@ Sentinel does **not** process money. It is the trust layer between actors — hu
 
 | Capability | Description | Status |
 |---|---|---|
-| Immutable Audit Ledger | Tamper-evident, HMAC-signed record of every action by every actor | ✅ Phase 2 |
+| Append-only Audit Ledger | Versioned HMAC-signed records with explicitly documented integrity limits | ✅ Phase 2 |
 | JWT Auth + RBAC | Email-first auth, role-based access, Redis token blacklist | ✅ Phase 2 |
 | Health + Observability | OpenTelemetry traces, Prometheus metrics, structured logging | ✅ Phase 1 |
 | AI Actor Tracking | Named AI agents, actor_type field, behavioral baselines | ✅ Phase 3 |
@@ -48,7 +48,7 @@ Sentinel does **not** process money. It is the trust layer between actors — hu
 | Dashboard | Next.js, BFF auth, actor timeline, alert inbox | ✅ Phase 4 |
 | Compliance Reports | PDF/CSV/JSON with AI actor attribution | ✅ Phase 4 |
 | Multi-tenancy | Row-level isolation, per-tenant Kafka topics | ✅ Phase 5 |
-| Kafka Streaming | Per-tenant topics, exactly-once, graceful consumer shutdown | ✅ Phase 5 |
+| Reliable Kafka Streaming | Transactional outbox, at-least-once consumption, idempotent scoring | ✅ Phase 5 |
 | Python SDK | Sync + async, fail_silent, AI agent attribution built in | ✅ Phase 5 |
 | Kubernetes Manifests | HPA, rolling deploys, zero-downtime, pod anti-affinity | ✅ Phase 6 |
 | Prometheus Alerting | SLA rules, consumer lag, API error rate, pipeline integrity | ✅ Phase 6 |
@@ -76,9 +76,9 @@ Sentinel does **not** process money. It is the trust layer between actors — hu
 │        ┌─────────────────────────────┼──────────────────┐            │
 │        │                             │                  │            │
 │  ┌─────▼──────┐   ┌──────────────────▼────┐   ┌────────▼───────┐    │
-│  │  Audit     │   │   Risk Intelligence    │   │  PostgreSQL    │    │
+│  │  Audit +   │   │   Risk Intelligence    │   │  PostgreSQL    │    │
 │  │  Ledger    │   │   Engine (Phase 3)     │   │  Redis         │    │
-│  │  (HMAC)    │   │   Scores every actor   │   │  Celery        │    │
+│  │  Outbox    │   │   Scores every actor   │   │  Celery        │    │
 │  └────────────┘   └───────────────────────┘   └────────────────┘    │
 │                                                                       │
 │  ┌────────────────────────────────────────────────────────────────┐  │
@@ -135,6 +135,9 @@ docker compose up --build
 
 # In another terminal — run migrations
 docker compose exec backend python manage.py migrate
+
+# Create explicitly synthetic local walkthrough data
+docker compose exec backend python manage.py seed_demo
 
 # Create a superuser (optional)
 docker compose exec backend python manage.py createsuperuser
@@ -194,6 +197,8 @@ sentinel/
 - [Coding Standards](docs/coding-standards.md)
 - [Contributing Guide](docs/contributing.md)
 - [Security Policy](docs/security-policy.md)
+- [Local Demo Walkthrough](docs/local-demo.md)
+- [ADR-018: Transactional Outbox and Event Provenance](docs/adr/adr-018-transactional-outbox-and-event-provenance.md)
 - [ADR Index](docs/adr/README.md)
 
 ---
